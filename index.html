@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <title>南昌都市凡人修仙传</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="game-container">
+        <div class="game-main">
+            <!-- 顶部标题栏 -->
+            <header id="top-bar" class="game-header">
+                <div id="chapter-info" class="header-info">
+                    <span id="current-chapter">第一章</span>
+                    <span id="current-location">南昌·地铁站</span>
+                </div>
+                <div id="realm-info" class="header-info">
+                    <span id="current-realm">凡人境</span>
+                    <button id="btn-open-menu" class="ui-button secondary">菜单</button>
+                </div>
+            </header>
+
+            <!-- 主内容区：可滚动的文字事件区域 -->
+            <main id="main-content" class="game-main-content">
+                <div id="event-area" class="text-panel">
+                    <div id="event-text" class="event-text"></div>
+                </div>
+            </main>
+
+            <!-- 选项按钮区域 -->
+            <div id="event-options" class="choice-list"></div>
+        </div>
+
+        <!-- 状态栏面板 -->
+        <aside class="game-status-panel">
+            <div class="status-toggle">状态详情 ▼</div>
+            <div class="status-compact" id="status-compact"></div>
+            <footer id="status-panel" class="status-bar">
+                <div id="player-status" class="status-content"></div>
+            </footer>
+        </aside>
+    </div>
+
+    <!-- 玩家菜单弹窗 -->
+    <div id="player-menu-overlay" class="menu-overlay" style="display: none;">
+        <div class="menu-container">
+            <div class="menu-header">
+                <h2>玩家菜单</h2>
+                <button id="btn-close-menu" class="menu-close-btn">×</button>
+            </div>
+            <div class="menu-tabs">
+                <button class="menu-tab active" data-tab="status">状态</button>
+                <button class="menu-tab" data-tab="inventory">背包</button>
+                <button class="menu-tab" data-tab="equipment">装备</button>
+                <button class="menu-tab" data-tab="cultivate">修炼</button>
+            </div>
+            <div class="menu-content">
+                <div id="menu-tab-status" class="menu-tab-content active">
+                    <!-- 状态内容 -->
+                </div>
+                <div id="menu-tab-inventory" class="menu-tab-content">
+                    <!-- 背包内容 -->
+                </div>
+                <div id="menu-tab-equipment" class="menu-tab-content">
+                    <!-- 装备内容 -->
+                </div>
+                <div id="menu-tab-cultivate" class="menu-tab-content">
+                    <!-- 修炼内容 -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 商店弹窗 -->
+    <div id="shop-overlay" class="menu-overlay" style="display: none;">
+        <div class="menu-container">
+            <div class="menu-header">
+                <h2 id="shop-name">商店</h2>
+                <button id="btn-close-shop" class="menu-close-btn">×</button>
+            </div>
+            <div class="shop-content">
+                <div class="shop-gold">当前金币: <span id="shop-current-gold">0</span></div>
+                <div id="shop-items-list" class="shop-items-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 数据文件 -->
+    <script src="data/core.js"></script>
+    <script src="data/items.js"></script>
+    <script src="data/enemies.js"></script>
+    <script src="data/events_ch1.js"></script>
+    <script src="data/events_ch2.js"></script>
+    <script src="data/events_ch3.js"></script>
+    <script src="data/events_ch4.js"></script>
+    <script src="data/events_ch5.js"></script>
+    <script src="data/events_ch6.js"></script>
+    <script src="data/events_ch7.js"></script>
+    <script src="data/events_ch8.js"></script>
+    <script src="data/events_ch9.js"></script>
+    <script src="data/aggregate.js"></script>
+
+    <!-- 游戏逻辑文件 -->
+    <script src="js/state.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/battle.js"></script>
+    <script src="js/shop_items.js"></script>
+    <script src="js/game.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>
