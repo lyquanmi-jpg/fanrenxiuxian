@@ -22,8 +22,41 @@ document.addEventListener("DOMContentLoaded", function() {
       Game.UI.updateRealmInfo(realm.name);
   }
 
-  // 开始游戏
-  Game.Game.startNewGame();
+  // 检查存档
+  if (Game.Save.hasSave()) {
+      const saveInfo = Game.Save.getSaveInfo();
+      if (saveInfo) {
+          const message = `检测到本地存档（第${saveInfo.chapter}章 - ${saveInfo.location}），是否继续游戏？`;
+          if (confirm(message)) {
+              // 加载存档
+              if (Game.Save.load()) {
+                  // 恢复UI
+                  Game.UI.renderPlayerStatus(Game.State);
+                  const savedRealm = Game.CoreConfig.realms.find(r => r.id === Game.State.player.realm);
+                  if (savedRealm) {
+                      Game.UI.updateRealmInfo(savedRealm.name);
+                  }
+                  // 读档后：默认进入主界面
+                  Game.UI.showHome();
+                  console.log("已加载存档，继续游戏");
+              } else {
+                  // 读档失败，开始新游戏
+                  console.log("读档失败，开始新游戏");
+                  Game.Game.startNewGame();
+              }
+          } else {
+              // 用户选择开始新游戏
+              Game.Game.startNewGame();
+          }
+      } else {
+          // 存档信息获取失败，开始新游戏
+          console.log("存档信息获取失败，开始新游戏");
+          Game.Game.startNewGame();
+      }
+  } else {
+      // 没有存档，开始新游戏
+      Game.Game.startNewGame();
+  }
 
   // 状态栏折叠交互（仅手机端）
   const statusToggle = document.querySelector(".status-toggle");
@@ -48,6 +81,14 @@ document.addEventListener("DOMContentLoaded", function() {
       });
   }
 
+  // 返回首页按钮绑定
+  const returnHomeBtn = document.getElementById("btn-return-home");
+  if (returnHomeBtn) {
+      returnHomeBtn.addEventListener("click", function() {
+          Game.Game.returnToHome();
+      });
+  }
+
   // 菜单标签切换
   document.querySelectorAll(".menu-tab").forEach(tab => {
       tab.addEventListener("click", function() {
@@ -56,6 +97,14 @@ document.addEventListener("DOMContentLoaded", function() {
           Game.UI.renderMenuContent();
       });
   });
+
+  // 初始化都市行动按钮和突破按钮的显示状态
+  Game.UI.updateActionButtons();
+  
+  // 定期更新行动按钮状态（每2秒）
+  setInterval(function() {
+      Game.UI.updateActionButtons();
+  }, 2000);
 
   console.log("游戏启动完成");
 });

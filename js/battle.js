@@ -6,6 +6,10 @@ Game.Battle = {
   currentBattle: null,
   isAutoBattle: false,  // 是否正在自动战斗
   autoBattleTimer: null,  // 自动战斗定时器
+  isSkipping: false,  // 是否正在跳过战斗
+  battleTimers: [],  // 存储所有战斗相关的定时器，用于清理
+  supportTriggeredThisTurn: false,  // 本回合是否已触发支援
+  revivalTriggeredThisBattle: false,  // 本场战斗是否已触发复活
 
   // 开始战斗
   start: function(enemyId, options) {
@@ -28,11 +32,790 @@ Game.Battle = {
           },
           playerStats: Game.State.getEffectiveStats(),
           turn: 0,
+          battleLog: [],  // 战报数组
           onEnd: options.onEnd || null
       };
 
       console.log(`战斗开始：${enemy.name}`);
-      this.renderBattle();
+      
+      // 显示战斗弹窗
+      Game.UI.showBattleView(this.currentBattle);
+      
+      // 开始自动战斗（简化版：自动播放战报）
+      this.startAutoBattleLog();
+  },
+
+  // 开始手动回合制战斗
+  startAutoBattleLog: function() {
+      const battle = this.currentBattle;
+      if (!battle) return;
+      
+      // 重置跳过标记
+      this.isSkipping = false;
+      
+      // 重置战斗状态标记
+      this.supportTriggeredThisTurn = false;
+      this.revivalTriggeredThisBattle = false;
+      
+      // 清空所有定时器
+      this.clearAllTimers();
+      
+      // 清空战报
+      battle.battleLog = [];
+      
+      // 添加战斗开始信息
+      this.addBattleLog(`【战斗开始】`, true);
+      this.addBattleLog(`${battle.enemy.name} 出现在你面前！`, true);
+      
+      // 开始玩家回合（手动模式）
+      this.startPlayerTurn();
+  },
+
+  // 开始玩家回合（手动模式）
+  startPlayerTurn: function() {
+      const battle = this.currentBattle;
+      if (!battle) return;
+      
+      // 检查战斗是否结束
+      if (battle.enemy.hp <= 0) {
+          this.showBattleResult(true);
+          return;
+      }
+      
+      if (battle.playerStats.hp <= 0) {
+          this.showBattleResult(false);
+          return;
+      }
+      
+      battle.turn++;
+      this.addBattleLog(`【第 ${battle.turn} 回合】`, true);
+      this.addBattleLog(`轮到你了！`, true);
+      
+      // 重置支援触发标记
+      this.supportTriggeredThisTurn = false;
+      
+      // 检查 NPC 支援（回合支援）
+      this.checkNPCSupport();
+      
+      // 更新UI，启用玩家操作按钮
+      Game.UI.enablePlayerActions();
+      
+      // 更新血条
+      Game.UI.updateBattleHpBar(battle);
+  },
+  
+  // 检查 NPC 支援
+  checkNPCSupport: function() {
+      if (this.supportTriggeredThisTurn) return; // 本回合已触发，不再触发
+      
+      const supportNPCs = Game.Social.getSupportNPCs();
+      if (supportNPCs.length === 0) return;
+
+      // 遍历所有支援 NPC，计算触发概率
+      for (let i = 0; i < supportNPCs.length; i++) {
+          const supportNPC = supportNPCs[i];
+          const chance = Game.Social.getSupportChance(supportNPC.id);
+          
+          if (Math.random() < chance) {
+              // 触发支援
+              this.triggerNPCSupport(supportNPC);
+              this.supportTriggeredThisTurn = true;
+              break; // 一回合最多触发一次
+          }
+      }
+  },
+  
+      // 触发 NPC 支援
+  triggerNPCSupport: function(supportNPC) {
+      const battle = this.currentBattle;
+      if (!battle) return;
+
+      const npc = supportNPC.npc;
+      const relationship = supportNPC.relationship;
+      
+      // 打印醒目的战报
+      this.addBattleLog(`【${npc.name}】突然闪现战场："别怕，有我在！"`, false);
+      
+      // 执行支援效果
+      const effect = Game.Social.executeSupport(supportNPC.id, battle);
+      if (effect) {
+          this.addBattleLog(effect.message, false);
+      }
+      
+      // 更新血条
+      Game.UI.updateBattleHpBar(battle);
+  },
+  
+  // 检查绝境复活（满级羁绊特权）
+  checkRevival: function() {
+      if (this.revivalTriggeredThisBattle) return false; // 本场战斗已触发过，不再触发
+      
+      const maxBondNPC = Game.Social.getMaxBondNPC();
+      if (!maxBondNPC) return false;
+
+      const battle = this.currentBattle;
+      if (!battle || battle.playerStats.hp > 0) return false;
+
+      // 触发复活
+      this.revivalTriggeredThisBattle = true;
+      const npc = maxBondNPC.npc;
+      
+      // 强制保留 1 点 HP
+      Game.State.changeHP(1);
+      battle.playerStats = Game.State.getEffectiveStats();
+      
+      // 恢复 50% HP
+      const healAmount = Math.floor(battle.playerStats.maxHp * 0.5);
+      Game.State.changeHP(healAmount);
+      battle.playerStats = Game.State.getEffectiveStats();
+      
+      // 打印复活剧情
+      this.addBattleLog(`在你意识模糊时，【${npc.name}】为你挡下了致命一击，并喂你服下一颗丹药！`, false);
+      this.addBattleLog(`【绝境复活】恢复了 ${healAmount} 点气血！`, false);
+      
+      // 更新血条
+      Game.UI.updateBattleHpBar(battle);
+      
+      return true;
+  },
+
+  // 执行玩家行动（由UI按钮触发）
+  executePlayerAction: function(actionType) {
+      const battle = this.currentBattle;
+      if (!battle) return;
+      
+      // 禁用玩家操作按钮
+      Game.UI.disablePlayerActions();
+      
+      if (actionType === 'attack') {
+          // 普通攻击
+          this.playerNormalAttack(false);
+      } else if (actionType === 'skill') {
+          // 技能攻击（使用 qi_blast）
+          const hasQiBlast = Game.State.hasSkill("qi_blast");
+          const skill = hasQiBlast ? this.getSkillData("qi_blast") : null;
+          
+          if (!skill) {
+              this.addBattleLog(`你还没有学会任何技能！`, true);
+              Game.UI.enablePlayerActions();
+              return;
+          }
+          
+          if (battle.playerStats.mp < skill.mpCost) {
+              this.addBattleLog(`灵力不足，无法使用 ${skill.name}！`, true);
+              Game.UI.enablePlayerActions();
+              return;
+          }
+          
+          // 消耗MP
+          Game.State.changeMP(-skill.mpCost);
+          battle.playerStats = Game.State.getEffectiveStats();
+          
+          // 计算技能伤害
+          let damage = Math.floor(battle.playerStats.attack * skill.damageMultiplier) - battle.enemy.defense;
+          if (damage < 1) damage = 1;
+          
+          // 暴击判定
+          const isCrit = Math.random() < battle.playerStats.critRate;
+          if (isCrit) {
+              damage = Math.floor(damage * battle.playerStats.critDamage);
+              this.addBattleLog(`你凝聚灵气，发射了一枚【${skill.name}】！`, false);
+              this.addBattleLog(`暴击！对 ${battle.enemy.name} 造成了 ${damage} 点伤害！`, false);
+          } else {
+              this.addBattleLog(`你凝聚灵气，发射了一枚【${skill.name}】！`, false);
+              this.addBattleLog(`对 ${battle.enemy.name} 造成了 ${damage} 点伤害！`, false);
+          }
+          
+          battle.enemy.hp -= damage;
+          battle.enemy.hp = Math.max(0, battle.enemy.hp);
+          
+          this.addBattleLog(`消耗了 ${skill.mpCost} 点灵力。`, false);
+          
+          // 更新血条
+          Game.UI.updateBattleHpBar(battle);
+          
+          // 检查敌人是否死亡
+          if (battle.enemy.hp <= 0) {
+              setTimeout(() => {
+                  this.showBattleResult(true);
+              }, 1000);
+              return;
+          }
+      }
+      
+      // 延迟后进入敌人回合
+      setTimeout(() => {
+          this.startEnemyTurn();
+      }, 1000);
+  },
+  
+  // 开始敌人回合
+  startEnemyTurn: function() {
+      const battle = this.currentBattle;
+      if (!battle) return;
+      
+      // 检查战斗是否结束
+      if (battle.enemy.hp <= 0) {
+          this.showBattleResult(true);
+          return;
+      }
+      
+      if (battle.playerStats.hp <= 0) {
+          this.showBattleResult(false);
+          return;
+      }
+      
+      // 延迟1000ms模拟思考
+      setTimeout(() => {
+          this.enemyTurnInAutoBattle(false);
+          
+          // 更新血条
+          Game.UI.updateBattleHpBar(battle);
+          
+          // 检查玩家是否死亡
+          if (battle.playerStats.hp <= 0) {
+              setTimeout(() => {
+                  this.showBattleResult(false);
+              }, 1000);
+              return;
+          }
+          
+          // 如果玩家存活，继续玩家回合
+          setTimeout(() => {
+              this.startPlayerTurn();
+          }, 1000);
+      }, 1000);
+  },
+
+  // 玩家回合（自动战斗）
+  playerTurnInAutoBattle: function(skipMode) {
+      const battle = this.currentBattle;
+      const player = battle.playerStats;
+      const enemy = battle.enemy;
+      
+      // 检查是否学会 qi_blast 技能，30%概率使用
+      const hasQiBlast = Game.State.hasSkill("qi_blast");
+      const skill = hasQiBlast ? this.getSkillData("qi_blast") : null;
+      const useSkill = hasQiBlast && skill && Math.random() < 0.3 && player.mp >= skill.mpCost;
+      
+      if (useSkill && skill) {
+          // 使用技能攻击
+          // 消耗MP
+          Game.State.changeMP(-skill.mpCost);
+          battle.playerStats = Game.State.getEffectiveStats();
+          
+          // 计算技能伤害（使用技能的伤害倍数）
+          let damage = Math.floor(player.attack * skill.damageMultiplier) - enemy.defense;
+          if (damage < 1) damage = 1;
+          
+          // 暴击判定
+          const isCrit = Math.random() < player.critRate;
+          if (isCrit) {
+              damage = Math.floor(damage * player.critDamage);
+              this.addBattleLog(`你凝聚灵气，发射了一枚【${skill.name}】！`, skipMode);
+              this.addBattleLog(`暴击！对 ${enemy.name} 造成了 ${damage} 点伤害！`, skipMode);
+          } else {
+              this.addBattleLog(`你凝聚灵气，发射了一枚【${skill.name}】！`, skipMode);
+              this.addBattleLog(`对 ${enemy.name} 造成了 ${damage} 点伤害！`, skipMode);
+          }
+          
+          enemy.hp -= damage;
+          enemy.hp = Math.max(0, enemy.hp);
+          
+          this.addBattleLog(`消耗了 ${skill.mpCost} 点灵力。`, skipMode);
+      } else {
+          // 使用普攻
+          this.playerNormalAttack(skipMode);
+      }
+      
+      // 注意：战斗结束检查在 battleTurnLoop 中进行，这里不需要检查
+  },
+
+  // 玩家普通攻击
+  playerNormalAttack: function(skipMode) {
+      const battle = this.currentBattle;
+      const player = battle.playerStats;
+      const enemy = battle.enemy;
+      
+      // 检查命中率
+      let hitChance = 1.0;
+      if (Game.State.battleBuffs.hitRateReductionTurns > 0) {
+          hitChance = 1.0 - Game.State.battleBuffs.hitRateReduction;
+          Game.State.battleBuffs.hitRateReductionTurns--;
+          if (Game.State.battleBuffs.hitRateReductionTurns <= 0) {
+              Game.State.battleBuffs.hitRateReduction = 0;
+          }
+      }
+      
+      // 判定是否命中
+      if (Math.random() > hitChance) {
+          this.addBattleLog(`你挥出一拳，但被 ${enemy.name} 闪避了！`, false);
+          return;
+      }
+      
+      // 计算伤害
+      let damage = player.attack - enemy.defense;
+      if (damage < 1) damage = 1;
+      
+      // 暴击判定
+      const isCrit = Math.random() < player.critRate;
+      if (isCrit) {
+          damage = Math.floor(damage * player.critDamage);
+          this.addBattleLog(`你挥出一拳，暴击！对 ${enemy.name} 造成了 ${damage} 点伤害！`, false);
+      } else {
+          this.addBattleLog(`你挥出一拳，对 ${enemy.name} 造成了 ${damage} 点伤害！`, false);
+      }
+      
+      enemy.hp -= damage;
+      enemy.hp = Math.max(0, enemy.hp);
+  },
+
+  // 敌人回合（自动战斗）
+  enemyTurnInAutoBattle: function(skipMode) {
+      const battle = this.currentBattle;
+      const enemyData = Game.Enemies.byId[battle.enemy.id];
+      const enemy = battle.enemy;
+      const player = battle.playerStats;
+      
+      // 应用被动效果（每回合恢复MP）
+      const passives = Game.State.getPassiveEffects();
+      if (passives.mpRegen > 0) {
+          Game.State.changeMP(passives.mpRegen);
+          battle.playerStats = Game.State.getEffectiveStats();
+          this.addBattleLog(`【被动效果】恢复了 ${passives.mpRegen} 点灵力`, skipMode);
+      }
+      
+      // 检查心魔boss的阶段机制
+      let attackLine = "";
+      let skillUsed = null;
+      let protectionUsed = false;
+      
+      if (battle.enemy.id === "heart_demon_ch1" && enemyData.phases) {
+          const hpPercent = enemy.hp / enemy.maxHp;
+          let currentPhase = null;
+          
+          for (let i = 0; i < enemyData.phases.length; i++) {
+              const phase = enemyData.phases[i];
+              if (hpPercent > phase.hpThreshold) {
+                  currentPhase = phase;
+                  break;
+              }
+          }
+          
+          if (!currentPhase && enemyData.phases.length > 0) {
+              currentPhase = enemyData.phases[enemyData.phases.length - 1];
+          }
+          
+          if (currentPhase) {
+              attackLine = currentPhase.line;
+              if (currentPhase.skill) {
+                  skillUsed = currentPhase.skill;
+              }
+          }
+      } else {
+          if (enemyData && enemyData.attackLines && enemyData.attackLines.length > 0) {
+              const randomIndex = Math.floor(Math.random() * enemyData.attackLines.length);
+              attackLine = enemyData.attackLines[randomIndex];
+          }
+      }
+      
+      // 显示敌人台词
+      if (attackLine) {
+          this.addBattleLog(`${enemy.name}：${attackLine}`, skipMode);
+      }
+      
+      // 应用阶段技能效果
+      if (skillUsed) {
+          if (skillUsed.effect === "reduceHitRate") {
+              Game.State.battleBuffs.hitRateReduction = skillUsed.value;
+              Game.State.battleBuffs.hitRateReductionTurns = 3;
+              this.addBattleLog(`【${skillUsed.name}】你的命中率降低了 ${skillUsed.value * 100}%！（持续3回合）`, skipMode);
+          } else if (skillUsed.effect === "reduceMP") {
+              Game.State.changeMP(-skillUsed.value);
+              battle.playerStats = Game.State.getEffectiveStats();
+              this.addBattleLog(`【${skillUsed.name}】你的灵力减少了 ${skillUsed.value} 点！`, skipMode);
+          }
+      }
+      
+      // 敌人攻击：检查是否有技能系统（NPC 或敌人数据中的 skills）
+      let enemySkill = null;
+      let useSkill = false;
+      
+      // 优先检查 NPC 数据中的 skills（用于 NPC 切磋）
+      if (battle.enemy.id && battle.enemy.id.startsWith("npc_")) {
+          const npcId = battle.enemy.id.replace("npc_", "");
+          const npc = Game.Social.getNPCData(npcId);
+          if (npc && npc.skills && npc.skills.length > 0) {
+              // 随机选择一个技能，根据 rate 判断是否使用
+              const availableSkills = npc.skills.filter(skill => Math.random() < skill.rate);
+              if (availableSkills.length > 0) {
+                  enemySkill = availableSkills[Math.floor(Math.random() * availableSkills.length)];
+                  useSkill = true;
+              }
+          }
+      }
+      
+      // 如果没有 NPC 技能，检查敌人数据中的 skills
+      if (!useSkill && enemyData && enemyData.skills && enemyData.skills.length > 0) {
+          const availableSkills = enemyData.skills.filter(skill => Math.random() < skill.rate);
+          if (availableSkills.length > 0) {
+              enemySkill = availableSkills[Math.floor(Math.random() * availableSkills.length)];
+              useSkill = true;
+          }
+      }
+      
+      // 敌人攻击
+      let attackCount = 1;
+      if (skillUsed && skillUsed.effect === "doubleAttack") {
+          attackCount = skillUsed.value;
+      }
+      
+      let totalDamage = 0;
+      let damageMultiplier = 1.0;
+      
+      // 如果使用技能，应用伤害倍率
+      if (useSkill && enemySkill) {
+          damageMultiplier = enemySkill.damageRate;
+          this.addBattleLog(enemySkill.text, skipMode);
+      }
+      
+      for (let i = 0; i < attackCount; i++) {
+          let damage = Math.floor((enemy.attack - player.defense) * damageMultiplier);
+          if (damage < 1) damage = 1;
+          
+          // 检查一次性护身符
+          if (i === 0 && Game.State.hasOneTimeProtection) {
+              totalDamage = 0;
+              Game.State.hasOneTimeProtection = false;
+              protectionUsed = true;
+              this.addBattleLog(`【护身符触发】一次性护身符发出微光，完全抵挡了 ${enemy.name} 的攻击！`, skipMode);
+              break;
+          }
+          
+          totalDamage += damage;
+      }
+      
+      // 应用伤害
+      if (totalDamage > 0) {
+          Game.State.changeHP(-totalDamage);
+          battle.playerStats = Game.State.getEffectiveStats();
+          if (useSkill && enemySkill) {
+              this.addBattleLog(`${enemy.name} 对你造成了 ${totalDamage} 点伤害！【${enemySkill.name}】`, skipMode);
+          } else {
+              this.addBattleLog(`${enemy.name} 对你造成了 ${totalDamage} 点伤害${attackCount > 1 ? `（连击${attackCount}次）` : ''}！`, skipMode);
+          }
+      }
+      
+      // 检查玩家是否死亡（在敌人回合后）
+      if (battle.playerStats.hp <= 0 && !skipMode) {
+          // 检查绝境复活（满级羁绊特权）
+          if (this.checkRevival()) {
+              return; // 已触发复活，继续战斗
+          }
+          // 如果不是跳过模式，需要等待日志显示完成后再显示结果
+          // 如果是跳过模式，会在 calculateBattleToEnd 中处理
+          return; // 返回，让 battleTurnLoop 检查并调用 showBattleResult
+      }
+      
+      // 不再显示重复的状态信息，只显示关键动作
+      // 删除重复的状态日志
+  },
+
+  // 添加战报到日志
+  addBattleLog: function(message, immediate) {
+      const battle = this.currentBattle;
+      if (!battle) return;
+      
+      battle.battleLog.push(message);
+      
+      // 如果正在跳过或立即显示，直接更新UI
+      if (this.isSkipping || immediate) {
+          Game.UI.updateBattleLogImmediate(battle.battleLog);
+      } else {
+          // 否则延迟显示
+          Game.UI.updateBattleLog(battle.battleLog);
+      }
+  },
+
+  // 清理所有定时器
+  clearAllTimers: function() {
+      this.battleTimers.forEach(timer => clearTimeout(timer));
+      this.battleTimers = [];
+  },
+
+  // 跳过战斗：瞬间计算到结束
+  skip: function() {
+      if (!this.currentBattle) return;
+      
+      this.isSkipping = true;
+      this.clearAllTimers();
+      
+      // 立即计算到战斗结束
+      this.calculateBattleToEnd();
+  },
+
+  // 计算战斗到结束（跳过模式）
+  calculateBattleToEnd: function() {
+      const battle = this.currentBattle;
+      if (!battle) return;
+      
+      // 继续战斗直到结束
+      while (battle.enemy.hp > 0 && battle.playerStats.hp > 0) {
+          battle.turn++;
+          
+          // 玩家回合
+          this.playerTurnInAutoBattle(true); // true 表示跳过模式
+          
+          // 如果敌人已死，跳出
+          if (battle.enemy.hp <= 0) break;
+          
+          // 敌人回合
+          this.enemyTurnInAutoBattle(true); // true 表示跳过模式
+          
+          // 如果玩家已死，跳出
+          if (battle.playerStats.hp <= 0) break;
+          
+          // 防止无限循环
+          if (battle.turn > 100) {
+              this.addBattleLog(`【战斗超时】战斗超过100回合，强制结束。`, true);
+              break;
+          }
+      }
+      
+      // 显示结果
+      const playerWon = battle.enemy.hp <= 0;
+      this.showBattleResult(playerWon);
+  },
+
+  // 显示战斗结果（不自动关闭）
+  showBattleResult: function(playerWon) {
+      const battle = this.currentBattle;
+      if (!battle) return;
+      
+      // 清理所有定时器，停止战斗循环
+      this.clearAllTimers();
+      
+      // 确保血条正确显示
+      if (!playerWon) {
+          battle.playerStats.hp = 0;
+      } else {
+          battle.enemy.hp = 0;
+      }
+      
+      // 更新血条
+      Game.UI.updateBattleHpBar(battle);
+      
+      // 添加结果日志
+      if (playerWon) {
+          this.addBattleLog(`【战斗胜利】`, true);
+          this.addBattleLog(`你击败了 ${battle.enemy.name}！`, true);
+          
+          // 计算奖励
+          const enemy = Game.Enemies.byId[battle.enemy.id];
+          if (enemy) {
+              if (enemy.exp > 0) {
+                  this.addBattleLog(`获得经验：${enemy.exp}`, true);
+              }
+              if (enemy.gold) {
+                  this.addBattleLog(`获得人民币：¥${enemy.gold}`, true);
+              }
+          }
+      } else {
+          this.addBattleLog(`【战斗失败】`, true);
+          this.addBattleLog(`你被 ${battle.enemy.name} 击败了...`, true);
+      }
+      
+      // 显示结算按钮（使用闭包保存战斗结果）
+      const battleResult = this.prepareBattleResult(playerWon);
+      Game.UI.showBattleResultButton(playerWon, battleResult, () => {
+          this.endBattle(playerWon, battleResult);
+      });
+  },
+
+  // 准备战斗结果（在显示按钮前计算好）
+  prepareBattleResult: function(playerWon) {
+      const battle = this.currentBattle;
+      if (!battle) return null;
+      
+      const enemy = Game.Enemies.byId[battle.enemy.id];
+      const battleResult = {
+          won: playerWon,
+          exp: 0,
+          money: 0,  // 改为 money 而不是 gold
+          droppedItems: [],
+          enemyId: battle.enemy.id,  // 保存敌人ID，用于检查二阶段
+          isNPC: false,
+          npcId: null
+      };
+
+      // 检查是否是 NPC 战斗
+      if (battle.enemy.id && battle.enemy.id.startsWith("npc_")) {
+          battleResult.isNPC = true;
+          battleResult.npcId = battle.enemy.id.replace("npc_", "");
+          
+          if (playerWon) {
+              const npc = Game.Social.getNPCData(battleResult.npcId);
+              if (npc && npc.loot) {
+                  battleResult.exp = npc.loot.exp || 0;
+                  battleResult.money = npc.loot.money || 0;
+                  
+                  // 处理掉落物品
+                  if (npc.loot.items) {
+                      npc.loot.items.forEach(drop => {
+                          if (Math.random() < (drop.rate || 1.0)) {
+                              const item = Game.Items.byId[drop.id];
+                              if (item) {
+                                  Game.State.addItem(drop.id, 1);
+                                  battleResult.droppedItems.push(item);
+                              }
+                          }
+                      });
+                  }
+              }
+          }
+      } else if (playerWon && enemy) {
+          battleResult.exp = enemy.exp || 0;
+          battleResult.money = enemy.gold || 0;  // enemy.gold 实际是 money
+          battleResult.spiritStones = enemy.spiritStones || 0;  // 灵石掉落
+          
+          // 处理灵石掉落
+          if (battleResult.spiritStones > 0) {
+              Game.State.player.spiritStones = (Game.State.player.spiritStones || 0) + battleResult.spiritStones;
+          }
+          
+          // 处理掉落
+          if (enemy.drops) {
+              for (let itemId in enemy.drops) {
+                  const dropChance = enemy.drops[itemId];
+                  if (Math.random() < dropChance) {
+                      const item = Game.Items.byId[itemId];
+                      if (item) {
+                          Game.State.addItem(itemId, 1);
+                          battleResult.droppedItems.push(item);
+                      }
+                  }
+              }
+          }
+      }
+      
+      return battleResult;
+  },
+  
+  // 挑战 NPC 真身（二阶段）
+  challengeTrueForm: function(npcId) {
+      const npc = Game.Social.getNPCData(npcId);
+      if (!npc || !npc.trueForm) {
+          console.error(`NPC ${npcId} 没有真身数据`);
+          return;
+      }
+
+      const trueForm = npc.trueForm;
+      
+      // 创建真身敌人数据
+      const trueFormEnemy = {
+          id: `npc_${npcId}_trueform`,
+          name: trueForm.name,
+          hp: trueForm.hp,
+          maxHp: trueForm.maxHp,
+          attack: trueForm.attack,
+          defense: trueForm.defense,
+          exp: trueForm.loot.exp || 0,
+          gold: trueForm.loot.money || 0,
+          spiritStones: trueForm.loot.spiritStones || 0,
+          skills: trueForm.skills || [],
+          drops: {}
+      };
+
+      // 处理掉落物品
+      if (trueForm.loot.items) {
+          trueForm.loot.items.forEach(drop => {
+              // 支持 count 属性（必掉）或 rate 属性（概率掉落）
+              if (drop.count !== undefined) {
+                  // 必掉，直接添加到掉落列表
+                  trueFormEnemy.drops[drop.id] = 1.0;  // 100% 概率
+              } else {
+                  // 概率掉落
+                  trueFormEnemy.drops[drop.id] = drop.rate || 1.0;
+              }
+          });
+      }
+
+      // 临时注册真身敌人
+      if (!Game.Enemies.byId[trueFormEnemy.id]) {
+          Game.Enemies.byId[trueFormEnemy.id] = trueFormEnemy;
+      }
+
+      // 显示真身描述
+      this.addBattleLog(`【真身显现】${trueForm.description}`, true);
+      
+      // 开始真身战斗
+      Game.Battle.start(trueFormEnemy.id, {
+          onEnd: (playerWon, battleResult) => {
+              // 真身战斗胜利后，不再显示挑战按钮
+              if (playerWon) {
+                  // 计算切磋后的好感度变化（真身战斗胜利大幅增加好感）
+                  const reaction = Game.Social.getCombatReaction(npcId, true);
+                  if (reaction) {
+                      // 真身胜利额外增加好感
+                      const result = Game.Social.changeAffinity(npcId, reaction.affinity + 30);
+                      alert(`你击败了${trueForm.name}！\n${reaction.message}\n额外获得30点好感度！`);
+                      if (result.leveledUp) {
+                          alert(`【羁绊升级】与 ${npc.name} 的羁绊等级提升到 Level ${result.newLevel === 'MAX' ? 'MAX' : result.newLevel}！`);
+                      }
+                  }
+              } else {
+                  // 真身战斗失败，大幅减少好感
+                  const reaction = Game.Social.getCombatReaction(npcId, false);
+                  if (reaction) {
+                      const result = Game.Social.changeAffinity(npcId, reaction.affinity - 20);
+                      alert(`你被${trueForm.name}击败了...\n${reaction.message}\n额外扣除20点好感度。`);
+                  }
+              }
+
+              // 清理临时敌人
+              delete Game.Enemies.byId[trueFormEnemy.id];
+
+              Game.Game.updateUI();
+              Game.Save.save();
+          }
+      });
+  },
+  
+  // 结束战斗（由结算按钮调用）
+  endBattle: function(playerWon, battleResult) {
+      // 停止所有战斗相关的定时器
+      this.clearAllTimers();
+      this.isSkipping = false; // 重置跳过状态
+
+      // 应用实际奖励
+      if (playerWon && battleResult) {
+          Game.State.addExp(battleResult.exp);
+          Game.State.player.money = (Game.State.player.money || 0) + battleResult.money;
+          // 灵石和掉落物品已经在 prepareBattleResult 中处理了
+          let logMsg = `战斗胜利！获得 ${battleResult.exp} 经验`;
+          if (battleResult.money > 0) {
+              logMsg += `，¥${battleResult.money} 人民币`;
+          }
+          if (battleResult.spiritStones > 0) {
+              logMsg += `，💎${battleResult.spiritStones} 灵石`;
+          }
+          console.log(logMsg);
+      } else {
+          console.log("战斗失败...");
+      }
+
+      // 调用原始的 onEnd 回调，传递完整的 battleResult 对象
+      if (this.currentBattle && this.currentBattle.onEnd) {
+          // battleResult 已经包含 exp, money, droppedItems，直接传递
+          this.currentBattle.onEnd(playerWon, battleResult);
+      }
+
+      this.currentBattle = null; // 清空当前战斗状态
+      Game.UI.closeBattleView(); // 关闭战斗弹窗
+      Game.Game.updateUI(); // 更新主界面UI
+      
+      // 自动存档（战斗结束后）
+      Game.Save.save();
   },
 
   // 渲染战斗界面
@@ -345,6 +1128,33 @@ Game.Battle = {
           }
       }
 
+      // 敌人攻击：检查是否有技能系统（NPC 或敌人数据中的 skills）
+      let enemySkill = null;
+      let useSkill = false;
+      
+      // 优先检查 NPC 数据中的 skills（用于 NPC 切磋）
+      if (battle.enemy.id && battle.enemy.id.startsWith("npc_")) {
+          const npcId = battle.enemy.id.replace("npc_", "");
+          const npc = Game.Social.getNPCData(npcId);
+          if (npc && npc.skills && npc.skills.length > 0) {
+              // 随机选择一个技能，根据 rate 判断是否使用
+              const availableSkills = npc.skills.filter(skill => Math.random() < skill.rate);
+              if (availableSkills.length > 0) {
+                  enemySkill = availableSkills[Math.floor(Math.random() * availableSkills.length)];
+                  useSkill = true;
+              }
+          }
+      }
+      
+      // 如果没有 NPC 技能，检查敌人数据中的 skills
+      if (!useSkill && enemyData && enemyData.skills && enemyData.skills.length > 0) {
+          const availableSkills = enemyData.skills.filter(skill => Math.random() < skill.rate);
+          if (availableSkills.length > 0) {
+              enemySkill = availableSkills[Math.floor(Math.random() * availableSkills.length)];
+              useSkill = true;
+          }
+      }
+
       // 敌人攻击（根据阶段决定攻击次数）
       let attackCount = 1;
       if (skillUsed && skillUsed.effect === "doubleAttack") {
@@ -352,8 +1162,16 @@ Game.Battle = {
       }
 
       let totalDamage = 0;
+      let damageMultiplier = 1.0;
+      
+      // 如果使用技能，应用伤害倍率
+      if (useSkill && enemySkill) {
+          damageMultiplier = enemySkill.damageRate;
+          console.log(enemySkill.text);
+      }
+
       for (let i = 0; i < attackCount; i++) {
-          let damage = enemy.attack - player.defense;
+          let damage = Math.floor((enemy.attack - player.defense) * damageMultiplier);
           if (damage < 1) damage = 1;
           
           // 检查一次性护身符（只对第一次攻击有效）
@@ -374,7 +1192,11 @@ Game.Battle = {
       }
       battle.playerStats = Game.State.getEffectiveStats();
 
+      if (useSkill && enemySkill) {
+          console.log(`${enemy.name} 对你造成了 ${totalDamage} 点伤害！【${enemySkill.name}】`);
+      } else {
       console.log(`${enemy.name} 对你造成了 ${totalDamage} 点伤害${attackCount > 1 ? `（连击${attackCount}次）` : ''}`);
+      }
 
       // 显示攻击台词和伤害
       const textEl = document.getElementById("event-text");
@@ -557,62 +1379,8 @@ Game.Battle = {
       }
   },
 
-  // 结束战斗
-  endBattle: function(playerWon) {
-      // 停止自动战斗
-      this.stopAutoBattle();
-      
-      const battle = this.currentBattle;
-      const enemy = Game.Enemies.byId[battle.enemy.id];
-      const battleResult = {
-          won: playerWon,
-          exp: 0,
-          gold: 0,
-          droppedItems: []
-      };
-
-      if (playerWon) {
-          // 玩家胜利：获得经验和金币
-          Game.State.addExp(enemy.exp);
-          Game.State.player.gold += enemy.gold;
-          battleResult.exp = enemy.exp;
-          battleResult.gold = enemy.gold;
-          console.log(`战斗胜利！获得 ${enemy.exp} 经验，${enemy.gold} 金币`);
-          
-          // 处理掉落
-          if (enemy.drops) {
-              for (let itemId in enemy.drops) {
-                  const dropChance = enemy.drops[itemId];
-                  if (Math.random() < dropChance) {
-                      // 检查是否已有该装备（防止重复获得）
-                      if (Game.State.getItemCount(itemId) === 0) {
-                          Game.State.addItem(itemId, 1);
-                          const item = Game.Items.byId[itemId];
-                          if (item) {
-                              battleResult.droppedItems.push(item);
-                              console.log(`获得掉落：${item.name}`);
-                          }
-                      } else {
-                          console.log(`已有装备 ${itemId}，不再重复获得`);
-                      }
-                  }
-              }
-          }
-      } else {
-          // 玩家失败：不在这里恢复HP，让失败界面处理
-          console.log("战斗失败...");
-      }
-
-      // 保存战斗结果到 battle 对象，供回调使用
-      battle.result = battleResult;
-
-      // 调用回调
-      if (battle.onEnd) {
-          battle.onEnd(playerWon, battleResult);
-      }
-
-      this.currentBattle = null;
-  },
+  // 结束战斗（由结算按钮调用，已合并到上面的新版本）
+  // 注意：这个函数已被上面的 endBattle 替代，如果上面没有，则使用这个
 
   // 开始自动战斗
   startAutoBattle: function() {

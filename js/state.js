@@ -9,15 +9,19 @@ Game.State = {
       realm: "mortal",  // 当前境界ID
       level: 1,
       exp: 0,
-      hp: 100,
-      maxHp: 100,
+      hp: 120,
+      maxHp: 120,
       mp: 50,
       maxMp: 50,
-      attack: 10,
-      defense: 5,
-      critRate: 0.05,
+      attack: 15,
+      defense: 8,
+      critRate: 0.1,
       critDamage: 1.5,
-      gold: 100
+      money: 2000,  // 人民币，用于世俗消费
+      spiritStones: 0,  // 灵石，用于修仙交易
+      energy: 100,  // 当前精力
+      maxEnergy: 100,  // 最大精力
+      isBottleneck: false  // 是否遇到瓶颈（需要突破境界）
   },
 
   // 背包（物品ID -> 数量）
@@ -41,7 +45,6 @@ Game.State = {
 
   // 修炼相关
   cultivationExp: 0,
-  dailyCultivateCount: 0,
 
   // 已学会的技能
   learnedSkills: [],
@@ -57,6 +60,9 @@ Game.State = {
       hitRateReduction: 0,  // 命中率降低（0-1，例如0.2表示降低20%）
       hitRateReductionTurns: 0  // 命中率降低剩余回合数
   },
+
+  // NPC 关系数据
+  relationships: {},
 
   // 添加物品到背包
   addItem: function(itemId, count) {
@@ -133,7 +139,7 @@ Game.State = {
       return { leveledUp, newLevel: this.player.level };
   },
 
-  // 检查境界突破
+  // 检查境界突破（经验值满后设置瓶颈，不自动突破）
   checkRealmBreakthrough: function() {
       const currentRealm = Game.CoreConfig.realms.find(r => r.id === this.player.realm);
       const currentRealmIndex = Game.CoreConfig.realms.indexOf(currentRealm);
@@ -141,17 +147,53 @@ Game.State = {
       if (currentRealmIndex < Game.CoreConfig.realms.length - 1) {
           const nextRealm = Game.CoreConfig.realms[currentRealmIndex + 1];
           if (this.player.level >= nextRealm.expRequired / 100) {  // 简化判断
-              this.player.realm = nextRealm.id;
-              console.log(`境界突破！当前境界：${nextRealm.name}`);
-              // 突破时大幅提升属性
-              this.player.maxHp += 50;
-              this.player.hp = this.player.maxHp;
-              this.player.maxMp += 30;
-              this.player.mp = this.player.maxMp;
-              this.player.attack += 10;
-              this.player.defense += 5;
+              // 经验值满了，设置瓶颈标志，不自动突破
+              if (!this.player.isBottleneck) {
+                  this.player.isBottleneck = true;
+                  console.log(`你感觉境界已到瓶颈，需要主动突破才能进入 ${nextRealm.name}。`);
+              }
           }
       }
+  },
+
+  // 尝试突破境界（只有在遇到瓶颈时才能调用）
+  attemptBreakthrough: function() {
+      if (!this.player.isBottleneck) {
+          return { success: false, message: "你尚未遇到瓶颈，无法突破境界。" };
+      }
+
+      const currentRealm = Game.CoreConfig.realms.find(r => r.id === this.player.realm);
+      const currentRealmIndex = Game.CoreConfig.realms.indexOf(currentRealm);
+      
+      if (currentRealmIndex >= Game.CoreConfig.realms.length - 1) {
+          return { success: false, message: "你已经达到最高境界，无法继续突破。" };
+      }
+
+      const nextRealm = Game.CoreConfig.realms[currentRealmIndex + 1];
+      
+      // 执行突破逻辑
+      this.player.realm = nextRealm.id;
+      console.log(`境界突破！当前境界：${nextRealm.name}`);
+      
+      // 突破时大幅提升属性
+      this.player.maxHp += 50;
+      this.player.hp = this.player.maxHp;
+      this.player.maxMp += 30;
+      this.player.mp = this.player.maxMp;
+      this.player.attack += 10;
+      this.player.defense += 5;
+      
+      // 清除瓶颈标志
+      this.player.isBottleneck = false;
+      
+      // 清空溢出的经验
+      this.player.exp = 0;
+
+      return { 
+          success: true, 
+          message: `恭喜！你成功突破到 ${nextRealm.name}！`,
+          newRealm: nextRealm.name
+      };
   },
 
   // 装备物品（使用 slot 参数）
@@ -250,13 +292,15 @@ Game.State = {
       };
   },
 
-  // 获取总属性（基础属性 + 装备加成）
+  // 获取总属性（基础属性 + 装备加成 + 套装效果）
   getTotalStats: function() {
       const base = {
           maxHp: this.player.maxHp,
           maxMp: this.player.maxMp,
           attack: this.player.attack,
-          defense: this.player.defense
+          defense: this.player.defense,
+          critRate: this.player.critRate || 0,
+          critDamage: this.player.critDamage || 1.5
       };
 
       // 计算装备加成（只计算 attack 和 defense，maxHp/maxMp 已经在装备时直接加到基础值了）
@@ -271,11 +315,129 @@ Game.State = {
                   
                   if (actualStats.attack) base.attack += actualStats.attack;
                   if (actualStats.defense) base.defense += actualStats.defense;
+                  if (actualStats.critRate) base.critRate += actualStats.critRate;
+                  if (actualStats.critDamage) base.critDamage += actualStats.critDamage;
               }
           }
       }
 
+      // 计算套装效果
+      const setEffects = this.getSetEffects();
+      if (setEffects.maxHp) base.maxHp += setEffects.maxHp;
+      if (setEffects.maxMp) base.maxMp += setEffects.maxMp;
+      if (setEffects.attack) base.attack += setEffects.attack;
+      if (setEffects.defense) base.defense += setEffects.defense;
+      if (setEffects.critRate) base.critRate += setEffects.critRate;
+      if (setEffects.critDamage) base.critDamage += setEffects.critDamage;
+
+      // 套装特殊效果（存储在 stats 对象中，供战斗系统使用）
+      if (setEffects.hpRegen) base.hpRegen = setEffects.hpRegen;
+      if (setEffects.skillDamageBoost) base.skillDamageBoost = setEffects.skillDamageBoost;
+      if (setEffects.comboChance) base.comboChance = setEffects.comboChance;
+
       return base;
+  },
+
+  // 获取套装效果
+  getSetEffects: function() {
+      const effects = {};
+      
+      // 统计各套装的装备数量
+      const setCounts = {};
+      for (let slot in this.equipment) {
+          const itemId = this.equipment[slot];
+          if (itemId) {
+              const item = Game.Items.byId[itemId];
+              if (item && item.setId) {
+                  setCounts[item.setId] = (setCounts[item.setId] || 0) + 1;
+              }
+          }
+      }
+
+      // 套装【市井烟火】(3件套)
+      const cityLifeCount = setCounts['set_city_life'] || 0;
+      if (cityLifeCount >= 2) {
+          effects.maxHp = (effects.maxHp || 0) + 200;
+      }
+      if (cityLifeCount >= 3) {
+          effects.hpRegen = 0.05;  // 每次攻击回复 5% 已损生命值
+      }
+
+      // 套装【心流涌动】(3件套)
+      const mindFlowCount = setCounts['set_mind_flow'] || 0;
+      if (mindFlowCount >= 2) {
+          effects.maxMp = (effects.maxMp || 0) + 100;
+      }
+      if (mindFlowCount >= 3) {
+          effects.skillDamageBoost = 0.3;  // 技能伤害提升 30%
+      }
+
+      // 套装【极速暴走】(3件套)
+      const speedForceCount = setCounts['set_speed_force'] || 0;
+      if (speedForceCount >= 2) {
+          effects.attack = (effects.attack || 0) + 20;
+      }
+      if (speedForceCount >= 3) {
+          effects.comboChance = 0.3;  // 普通攻击有 30% 概率触发连击
+      }
+
+      // 套装【都市传说】(3件套)
+      const urbanLegendCount = setCounts['set_urban_legend'] || 0;
+      if (urbanLegendCount >= 2) {
+          effects.moneyBonus = 0.5;  // 战斗金币收益+50%
+      }
+      if (urbanLegendCount >= 3) {
+          effects.hpRegen = (effects.hpRegen || 0) + 0.1;  // 每回合回复 10% 已损生命值
+      }
+
+      // 套装【赛博夜行】(3件套)
+      const cyberNightCount = setCounts['set_cyber_night'] || 0;
+      if (cyberNightCount >= 2) {
+          effects.critRate = (effects.critRate || 0) + 0.2;  // 暴击率+20%
+      }
+      if (cyberNightCount >= 3) {
+          effects.stunChance = 0.25;  // 攻击有 25% 概率造成眩晕
+      }
+
+      return effects;
+  },
+
+  // 获取套装信息（用于 UI 显示）
+  getSetInfo: function() {
+      const setInfo = {};
+      
+      // 统计各套装的装备数量
+      const setCounts = {};
+      const setNames = {
+          'set_city_life': '市井烟火',
+          'set_mind_flow': '心流涌动',
+          'set_speed_force': '极速暴走',
+          'set_urban_legend': '都市传说',
+          'set_cyber_night': '赛博夜行'
+      };
+      
+      for (let slot in this.equipment) {
+          const itemId = this.equipment[slot];
+          if (itemId) {
+              const item = Game.Items.byId[itemId];
+              if (item && item.setId) {
+                  setCounts[item.setId] = (setCounts[item.setId] || 0) + 1;
+              }
+          }
+      }
+
+      // 构建套装信息
+      for (let setId in setCounts) {
+          const count = setCounts[setId];
+          const setName = setNames[setId] || setId;
+          setInfo[setId] = {
+              name: setName,
+              count: count,
+              total: 3
+          };
+      }
+
+      return setInfo;
   },
 
   // 获取被动效果（从装备中）
@@ -300,18 +462,29 @@ Game.State = {
       return passives;
   },
 
-  // 检查是否可以修炼
+  // 检查是否可以修炼（检查精力值）
   canCultivate: function() {
-      return this.dailyCultivateCount < 10;
+      return this.player.energy >= 10;
   },
 
-  // 执行修炼
+  // 执行修炼（消耗精力值）
   doCultivate: function() {
       if (!this.canCultivate()) {
-          return { success: false, message: "今天状态不佳，修炼收获有限，明天再试吧。" };
+          return { success: false, message: "你精神恍惚，无法集中注意力修炼，先休息一下或补充点精力吧。" };
       }
 
-      this.dailyCultivateCount++;
+      // 检查灵石是否充足
+      if (this.player.spiritStones < 1) {
+          return { 
+              success: false, 
+              message: "灵石不足！修仙乃逆天而行，无资源寸步难行。请去城市探索或战斗获取灵石。" 
+          };
+      }
+
+      // 消耗10点精力和1枚灵石
+      this.player.energy = Math.max(0, this.player.energy - 10);
+      this.player.spiritStones = Math.max(0, this.player.spiritStones - 1);
+      
       const gainedExp = 3;
       const gainedCultivationExp = 5;
       const gainedMpMax = 2;
@@ -334,14 +507,44 @@ Game.State = {
           gainedExp: gainedExp,
           gainedCultivationExp: gainedCultivationExp,
           gainedMpMax: gainedMpMax,
-          message: message
+          message: message,
+          energyUsed: 10,
+          spiritStonesUsed: 1,
+          remainingEnergy: this.player.energy,
+          remainingSpiritStones: this.player.spiritStones
       };
   },
 
-  // 重置每日修炼次数
-  resetDailyCultivateCount: function() {
-      this.dailyCultivateCount = 0;
-      console.log("修炼次数已重置");
+  // 休息恢复精力
+  rest: function() {
+      const energyRestored = 30;
+      const oldEnergy = this.player.energy;
+      this.player.energy = Math.min(this.player.maxEnergy, this.player.energy + energyRestored);
+      const actualRestored = this.player.energy - oldEnergy;
+      
+      // 恢复50%的最大气血
+      const hpRestored = Math.floor(this.player.maxHp * 0.5);
+      const oldHp = this.player.hp;
+      this.player.hp = Math.min(this.player.maxHp, this.player.hp + hpRestored);
+      const actualHpRestored = this.player.hp - oldHp;
+      
+      // 恢复50%的最大灵力
+      const mpRestored = Math.floor(this.player.maxMp * 0.5);
+      const oldMp = this.player.mp;
+      this.player.mp = Math.min(this.player.maxMp, this.player.mp + mpRestored);
+      const actualMpRestored = this.player.mp - oldMp;
+      
+      console.log(`你休息了一会儿，恢复了 ${actualRestored} 点精力，${actualHpRestored} 点气血，${actualMpRestored} 点灵力。`);
+      
+      return {
+          success: true,
+          energyRestored: actualRestored,
+          hpRestored: actualHpRestored,
+          mpRestored: actualMpRestored,
+          currentEnergy: this.player.energy,
+          maxEnergy: this.player.maxEnergy,
+          message: `你回到出租屋睡了一觉，精力和伤势都恢复了不少。`
+      };
   },
 
   // 检查是否已学会技能
@@ -402,11 +605,10 @@ Game.State = {
           if (item.effect.mp) {
               this.changeMP(item.effect.mp);
           }
-          if (item.effect.resetCultivateCount) {
-              this.resetDailyCultivateCount();
-              if (item.effect.gainCultivationExp) {
-                  this.cultivationExp += item.effect.gainCultivationExp;
-              }
+          // 处理直接恢复精力
+          if (item.effect.energy) {
+              this.player.energy = Math.min(this.player.maxEnergy, this.player.energy + item.effect.energy);
+              console.log(`恢复了 ${item.effect.energy} 点精力`);
           }
           // 处理一次性护身符
           if (item.effect.equipOneTimeProtection) {
@@ -433,9 +635,13 @@ Game.State = {
 
       // 计算出售价格（原价的60%）
       const sellPrice = Math.floor(item.price * 0.6 * count);
-      this.player.gold += sellPrice;
+      
+      // Todo: 根据物品类型判断使用 money 还是 spiritStones
+      // 目前默认使用 money（人民币）
+      // 凡人物品交易用 money，修仙物品交易用 spiritStones
+      this.player.money += sellPrice;
 
-      console.log(`出售了：${item.name} x${count}，获得 ${sellPrice} 金币`);
-      return { item: item, count: count, gold: sellPrice };
+      console.log(`出售了：${item.name} x${count}，获得 ${sellPrice} 人民币`);
+      return { item: item, count: count, money: sellPrice };
   }
 };

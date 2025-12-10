@@ -11,8 +11,7 @@ Game.Shop = {
             items: [
                 { itemId: "basic_pill_hp", price: 30 },
                 { itemId: "basic_pill_mp", price: 30 },
-                { itemId: "instant_noodles", price: 15 },
-                { itemId: "spirit_stone_reset", price: 80 }
+                { itemId: "instant_noodles", price: 15 }
             ]
         },
         "ch1_night_stall": {
@@ -20,8 +19,7 @@ Game.Shop = {
             name: "派对附近的夜宵摊",
             items: [
                 { itemId: "basic_pill_hp", price: 35 },
-                { itemId: "instant_noodles", price: 18 },
-                { itemId: "spirit_stone_reset", price: 80 }
+                { itemId: "instant_noodles", price: 18 }
             ]
         },
         "wuyi_plaza": {
@@ -79,18 +77,23 @@ Game.Shop = {
         }
 
         const price = customPrice !== undefined ? customPrice : item.price;
-        if (Game.State.player.gold < price) {
-            console.log("金币不足");
+        // Todo: 根据物品类型判断使用 money 还是 spiritStones
+        // 目前默认使用 money（人民币）
+        if ((Game.State.player.money || 0) < price) {
+            console.log("人民币不足");
             return false;
         }
 
-        Game.State.player.gold -= price;
+        Game.State.player.money = (Game.State.player.money || 0) - price;
         Game.State.addItem(itemId, 1);
         console.log(`购买了：${item.name}`);
 
         // 刷新UI
         Game.UI.renderPlayerStatus(Game.State);
         Game.UI.refreshShopView();
+        
+        // 自动存档（购买物品后）
+        Game.Save.save();
 
         return true;
     }
