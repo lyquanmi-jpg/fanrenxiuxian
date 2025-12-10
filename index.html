@@ -17,19 +17,33 @@
                 </div>
                 <div id="realm-info" class="header-info">
                     <span id="current-realm">凡人境</span>
+                    <button id="btn-return-home" class="ui-button secondary" style="display: none;">🏠 返回首页</button>
                     <button id="btn-open-menu" class="ui-button secondary">菜单</button>
                 </div>
             </header>
 
-            <!-- 主内容区：可滚动的文字事件区域 -->
+            <!-- 主内容区 -->
             <main id="main-content" class="game-main-content">
-                <div id="event-area" class="text-panel">
+                <!-- 出租屋主界面（默认显示） -->
+                <div id="game-home" class="home-container">
+                    <div class="home-grid" id="home-grid">
+                        <!-- 主界面卡片按钮将在这里动态生成 -->
+                    </div>
+                </div>
+
+                <!-- 剧情/事件区域（默认隐藏，进入剧情时显示） -->
+                <div id="event-area" class="text-panel" style="display: none;">
                     <div id="event-text" class="event-text"></div>
                 </div>
             </main>
 
-            <!-- 选项按钮区域 -->
-            <div id="event-options" class="choice-list"></div>
+            <!-- 选项按钮区域（默认隐藏，进入剧情时显示） -->
+            <div id="event-options" class="choice-list" style="display: none;"></div>
+            
+            <!-- 境界突破按钮 -->
+            <div id="breakthrough-panel" class="breakthrough-panel" style="display: none;">
+                <button id="btn-attempt-breakthrough" class="breakthrough-btn" onclick="Game.Game.onAttemptBreakthrough()">尝试突破</button>
+            </div>
         </div>
 
         <!-- 状态栏面板 -->
@@ -53,7 +67,7 @@
                 <button class="menu-tab active" data-tab="status">状态</button>
                 <button class="menu-tab" data-tab="inventory">背包</button>
                 <button class="menu-tab" data-tab="equipment">装备</button>
-                <button class="menu-tab" data-tab="cultivate">修炼</button>
+                <button class="menu-tab" data-tab="social">人脉</button>
             </div>
             <div class="menu-content">
                 <div id="menu-tab-status" class="menu-tab-content active">
@@ -65,8 +79,8 @@
                 <div id="menu-tab-equipment" class="menu-tab-content">
                     <!-- 装备内容 -->
                 </div>
-                <div id="menu-tab-cultivate" class="menu-tab-content">
-                    <!-- 修炼内容 -->
+                <div id="menu-tab-social" class="menu-tab-content">
+                    <!-- 人脉内容 -->
                 </div>
             </div>
         </div>
@@ -80,8 +94,50 @@
                 <button id="btn-close-shop" class="menu-close-btn">×</button>
             </div>
             <div class="shop-content">
-                <div class="shop-gold">当前金币: <span id="shop-current-gold">0</span></div>
+                <div class="shop-gold">当前人民币: <span id="shop-current-gold">0</span></div>
                 <div id="shop-items-list" class="shop-items-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 战斗弹窗 -->
+    <div id="battle-overlay" class="battle-overlay" style="display: none;">
+        <div class="battle-container">
+            <div class="battle-header">
+                <h2 id="battle-enemy-name">敌人</h2>
+                <button id="battle-skip-btn" class="battle-skip-btn" style="display: none;">⚡ 快速结束</button>
+            </div>
+            <div class="battle-content">
+                <!-- 敌人血条 -->
+                <div class="battle-hp-section">
+                    <div class="battle-hp-label">敌人HP</div>
+                    <div class="battle-hp-bar-container">
+                        <div id="battle-enemy-hp-bar" class="battle-hp-bar enemy-hp-bar" style="width: 100%;"></div>
+                    </div>
+                    <div id="battle-enemy-hp-text" class="battle-hp-text">100/100</div>
+                </div>
+                
+                <!-- 战报区域 -->
+                <div id="battle-log" class="battle-log">
+                    <!-- 战报将在这里逐行显示 -->
+                </div>
+                
+                <!-- 玩家血条 -->
+                <div class="battle-hp-section">
+                    <div class="battle-hp-label">你的状态</div>
+                    <div class="battle-hp-bar-container">
+                        <div id="battle-player-hp-bar" class="battle-hp-bar player-hp-bar" style="width: 100%;"></div>
+                    </div>
+                    <div id="battle-player-hp-text" class="battle-hp-text">HP: 100/100  MP: 50/50</div>
+                </div>
+                
+                <!-- 战斗操作栏 -->
+                <div id="battle-action-panel" class="battle-action-panel" style="display: none;">
+                    <!-- 操作按钮将在这里动态生成 -->
+                </div>
+                
+                <!-- 结算按钮容器 -->
+                <div id="battle-result-btn-container" style="display: none;"></div>
             </div>
         </div>
     </div>
@@ -90,6 +146,7 @@
     <script src="data/core.js"></script>
     <script src="data/items.js"></script>
     <script src="data/enemies.js"></script>
+    <script src="data/npcs.js"></script>
     <script src="data/events_ch1.js"></script>
     <script src="data/events_ch2.js"></script>
     <script src="data/events_ch3.js"></script>
@@ -103,6 +160,8 @@
 
     <!-- 游戏逻辑文件 -->
     <script src="js/state.js"></script>
+    <script src="js/save.js"></script>
+    <script src="js/social.js"></script>
     <script src="js/ui.js"></script>
     <script src="js/battle.js"></script>
     <script src="js/shop_items.js"></script>
