@@ -67,6 +67,14 @@ Game.Items = {
           price: 80,
           effect: { resetCultivateCount: true, gainCultivationExp: 5 }
       },
+      "gift_general": {
+          id: "gift_general",
+          name: "心意礼盒",
+          type: "consumable",
+          description: "通用礼物，可以增加 NPC 好感度。",
+          price: 30,
+          effect: {} // 效果将由 NPC 交互系统处理
+      },
       "spell_book_qi_blast": {
           id: "spell_book_qi_blast",
           name: "《基础灵力弹》",
@@ -297,6 +305,242 @@ Game.Items = {
           price: 400,
           quality: "legendary",  // 红色传奇（BOSS核心掉落）
           stats: { attack: 8, defense: 6, maxHp: 50 }
+      },
+      "artifact_red_wine_glass": {
+          id: "artifact_red_wine_glass",
+          name: "绯红酒杯",
+          type: "equipment",
+          slot: "accessory",
+          description: "红姐的随身法宝，蕴含着令人迷醉的危险力量。大幅提升攻击力，并具有吸血效果。",
+          price: 2000,
+          quality: "legendary",  // 红色传奇（真身掉落）
+          stats: { attack: 20, maxHp: 200 }  // 攻击+20，气血+200（吸血效果暂用HP代替）
+      },
+      
+      // ==========================
+      // 套装【市井烟火】(3件套)
+      // ==========================
+      "artifact_dragon_tooth_skewer": {
+          id: "artifact_dragon_tooth_skewer",
+          name: "龙牙烤串刀",
+          type: "equipment",
+          slot: "weapon",
+          description: "白猫的专属神器，用龙牙制成的烤串刀，散发着诱人的香气。",
+          price: 3000,
+          quality: "legendary",
+          stats: { attack: 60, critRate: 0.1 },
+          setId: "set_city_life"
+      },
+      "artifact_bath_emperor_robe": {
+          id: "artifact_bath_emperor_robe",
+          name: "浴皇大帝袍",
+          type: "equipment",
+          slot: "armor",
+          description: "彬彬的专属神器，浴皇大帝的御用道袍，水汽缭绕。",
+          price: 3000,
+          quality: "legendary",
+          stats: { defense: 40, maxHp: 300 },
+          setId: "set_city_life"
+      },
+      "artifact_keyboard_warrior_badge": {
+          id: "artifact_keyboard_warrior_badge",
+          name: "键盘侠徽章",
+          type: "equipment",
+          slot: "accessory",
+          description: "阿澈的专属神器，键盘侠的象征，能提升反应速度。",
+          price: 3000,
+          quality: "legendary",
+          stats: { attack: 10, critRate: 0.05 },
+          setId: "set_city_life"
+      },
+      
+      // ==========================
+      // 套装【心流涌动】(3件套)
+      // ==========================
+      "artifact_phantom_ribbon": {
+          id: "artifact_phantom_ribbon",
+          name: "幻舞飘带",
+          type: "equipment",
+          slot: "weapon",
+          description: "春夏的专属神器，如幻如梦的飘带，舞动时能迷惑敌人。",
+          price: 3000,
+          quality: "legendary",
+          stats: { attack: 50, critRate: 0.1 },
+          setId: "set_mind_flow"
+      },
+      "artifact_painting_plate": {
+          id: "artifact_painting_plate",
+          name: "画魂板甲",
+          type: "equipment",
+          slot: "armor",
+          description: "欧文的专属神器，将心象具现的板甲，防御力惊人。",
+          price: 3000,
+          quality: "legendary",
+          stats: { defense: 30, maxMp: 100 },
+          setId: "set_mind_flow"
+      },
+      "artifact_truth_lens": {
+          id: "artifact_truth_lens",
+          name: "真理镜头",
+          type: "equipment",
+          slot: "accessory",
+          description: "阳阳的专属神器，能捕捉真实瞬间的镜头，提升洞察力。",
+          price: 3000,
+          quality: "legendary",
+          stats: { critRate: 0.15, critDamage: 0.1 },
+          setId: "set_mind_flow"
+      },
+      
+      // ==========================
+      // 套装【极速暴走】(3件套)
+      // ==========================
+      "artifact_burning_whip": {
+          id: "artifact_burning_whip",
+          name: "灼热舞鞭",
+          type: "equipment",
+          slot: "weapon",
+          description: "JOJO姐的专属神器，燃烧着心火的舞鞭，攻击力极高。",
+          price: 3000,
+          quality: "legendary",
+          stats: { attack: 70 },
+          setId: "set_speed_force"
+      },
+      "artifact_training_armor": {
+          id: "artifact_training_armor",
+          name: "甚至练出了铠甲",
+          type: "equipment",
+          slot: "armor",
+          description: "白米饭的专属神器，极致修炼后形成的铠甲，防御力惊人。",
+          price: 3000,
+          quality: "legendary",
+          stats: { defense: 50 },
+          setId: "set_speed_force"
+      },
+      "artifact_wind_thunder_ring": {
+          id: "artifact_wind_thunder_ring",
+          name: "风雷机车戒",
+          type: "equipment",
+          slot: "accessory",
+          description: "小微姐的专属神器，风雷之力凝聚的戒指，提升速度和闪避。",
+          price: 3000,
+          quality: "legendary",
+          stats: { critRate: 0.1, critDamage: 0.1 },
+          setId: "set_speed_force"
+      },
+      
+      // ==========================
+      // 散件神器（独立强力装备）
+      // ==========================
+      "artifact_venom_microphone": {
+          id: "artifact_venom_microphone",
+          name: "毒舌麦克风",
+          type: "equipment",
+          slot: "weapon",
+          description: "冬瓜哥的专属神器，能发出毒舌攻击的麦克风，附带沉默效果。",
+          price: 3000,
+          quality: "legendary",
+          stats: { attack: 55 },
+          specialEffect: "silence"  // 沉默效果
+      },
+      "artifact_scissor_guillotine": {
+          id: "artifact_scissor_guillotine",
+          name: "剪刀断头台",
+          type: "equipment",
+          slot: "weapon",
+          description: "奇奇的专属神器，危险的剪刀，攻击力极高但会消耗自身生命。",
+          price: 3000,
+          quality: "legendary",
+          stats: { attack: 80 },
+          specialEffect: "selfDamage"  // 扣除自身10% HP上限
+      },
+      "artifact_quantum_glasses": {
+          id: "artifact_quantum_glasses",
+          name: "量子眼镜",
+          type: "equipment",
+          slot: "accessory",
+          description: "琪琪的专属神器，能看穿一切防御的量子眼镜。",
+          price: 3000,
+          quality: "legendary",
+          stats: { critRate: 0.2 }  // 破防+20% 用暴击率表示
+      },
+      
+      // ==========================
+      // 套装【都市传说】(3件套)
+      // ==========================
+      "weapon_quant_ruler": {
+          id: "weapon_quant_ruler",
+          name: "量化计算尺",
+          type: "equipment",
+          slot: "weapon",
+          description: "文婷的专属神器，能精确计算并偷取金币的量化工具。",
+          price: 3000,
+          quality: "legendary",
+          stats: { attack: 55 },
+          setId: "set_urban_legend",
+          specialEffect: "stealMoney"  // 每次攻击偷取 10-20 金币
+      },
+      "armor_social_cloak": {
+          id: "armor_social_cloak",
+          name: "社恐隐身衣",
+          type: "equipment",
+          slot: "armor",
+          description: "桃汁的专属神器，能让穿戴者隐身的社恐神器。",
+          price: 3000,
+          quality: "legendary",
+          stats: { defense: 35 },
+          setId: "set_urban_legend",
+          specialEffect: "dodge"  // 闪避+15%
+      },
+      "accessory_heal_sachet": {
+          id: "accessory_heal_sachet",
+          name: "治愈香囊",
+          type: "equipment",
+          slot: "accessory",
+          description: "小D的专属神器，散发着治愈香气的香囊。",
+          price: 3000,
+          quality: "legendary",
+          stats: { maxHp: 400 },
+          setId: "set_urban_legend",
+          passive: { hpRegen: 20 }  // 每回合回血 20
+      },
+      
+      // ==========================
+      // 套装【赛博夜行】(3件套)
+      // ==========================
+      "weapon_zero_gaze": {
+          id: "weapon_zero_gaze",
+          name: "零度凝视",
+          type: "equipment",
+          slot: "weapon",
+          description: "骏十七的专属神器，冰冷的凝视能冻结一切。",
+          price: 3000,
+          quality: "legendary",
+          stats: { attack: 75 },
+          setId: "set_cyber_night",
+          specialEffect: "freeze"  // 攻击有 20% 概率冰冻敌人
+      },
+      "armor_tactical_vest": {
+          id: "armor_tactical_vest",
+          name: "战术背心",
+          type: "equipment",
+          slot: "armor",
+          description: "李成的专属神器，军用级战术背心，提供强大防护。",
+          price: 3000,
+          quality: "legendary",
+          stats: { defense: 45 },
+          setId: "set_cyber_night",
+          specialEffect: "critResist"  // 暴击抗性+20%
+      },
+      "accessory_rhythm_core": {
+          id: "accessory_rhythm_core",
+          name: "律动核心",
+          type: "equipment",
+          slot: "accessory",
+          description: "爱坤的专属神器，电音律动的核心，提升暴击伤害。",
+          price: 3000,
+          quality: "legendary",
+          stats: { critDamage: 0.5 },
+          setId: "set_cyber_night"
       }
   },
 

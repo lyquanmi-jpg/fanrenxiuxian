@@ -17,13 +17,13 @@ Game.Events_ch1 = [
       options: [
         {
           text: "先按导航去出租屋，安顿一下再说",
-          next: "ch1_rental_1",
+          next: "ch1_rental_arrival",
           effects: { exp: 5 }
         },
         {
           text: "在车站广场晃一圈，感受一下这座城市",
           next: "ch1_station_walk_1",
-          effects: { exp: 5 }
+          effects: { exp: 5, energy: -5 }
         }
       ]
     },
@@ -42,12 +42,30 @@ Game.Events_ch1 = [
       options: [
         {
           text: "摇摇头，还是先去出租屋吧",
-          next: "ch1_rental_1",
+          next: "ch1_rental_arrival",
           effects: { money: -5, hp: 5 }
         },
         {
           text: "给红姐回个消息：先别急，等我安顿好",
-          next: "ch1_rental_1",
+          next: "ch1_rental_arrival",
+          effects: { exp: 5 }
+        }
+      ]
+    },
+
+    // ===== 1.2 到达出租屋：过渡到傍晚等待红姐消息 =====
+    {
+      id: "ch1_rental_arrival",
+      type: "story",
+      speaker: "旁白",
+      text:
+        "你终于到了出租屋。虽然房间不大，但这就是你在南昌的第一个落脚点了。\n\n" +
+        "你放下行李，深吸了一口气。窗外是这座城市特有的喧嚣，而这里，暂时是属于你的小空间。\n\n" +
+        "是时候整理一下思绪，准备开始新的生活了。",
+      options: [
+        {
+          text: "整理好东西，等待晚上的聚会",
+          next: "ch1_rental_to_evening",
           effects: { exp: 5 }
         }
       ]
@@ -67,17 +85,17 @@ Game.Events_ch1 = [
         {
           text: "闭上眼睛，认真感受一下这股异样的感觉",
           next: "ch1_awaken_hint_1",
-          effects: { exp: 10, mp: 5 }
+          effects: { exp: 10, mp: 5, energy: -2 }
         },
         {
           text: "在房间里翻找一下，看看有没有能用的东西",
           next: "ch1_rental_find_item",
-          effects: { exp: 5 }
+          effects: { exp: 5, energy: -5 }
         },
         {
           text: "算了，当自己是太累了，下楼去便利店",
           next: "ch1_convenience_store_visit",
-          effects: { hp: 5 }
+          effects: { hp: 5, energy: -5 }
         },
         {
           text: "躺一会儿刷手机，再考虑要不要去找红姐",
@@ -143,16 +161,17 @@ Game.Events_ch1 = [
         {
           text: "不对劲，再次集中注意力，试着感受那股力量",
           next: "ch1_awaken_hint_1",
-          effects: { exp: 10 }
+          effects: { exp: 10, energy: -2 }
         },
         {
           text: "还是先出去转转，活动一下",
           next: "ch1_street_explore",
-          effects: { exp: 5 }
+          effects: { exp: 5, energy: -5 }
         },
         {
           text: "去附近的废弃工厂看看（可以练级）",
-          next: "ch1_training_area_hub"
+          next: "ch1_training_area_hub",
+          effects: { energy: -5 }
         }
       ]
     },
@@ -173,12 +192,12 @@ Game.Events_ch1 = [
         {
           text: "继续顺着这股感觉引导下去",
           next: "ch1_awaken_hint_2",
-          effects: { exp: 15, mp: 10 }
+          effects: { exp: 15, mp: 10, energy: -2 }
         },
         {
           text: "有点怕，还是先出去走走，看点正常东西",
           next: "ch1_street_explore",
-          effects: { hp: 5 }
+          effects: { hp: 5, energy: -5 }
         }
       ]
     },
@@ -201,7 +220,7 @@ Game.Events_ch1 = [
         {
           text: "趁天还没黑，下楼看看周围的街区",
           next: "ch1_street_explore",
-          effects: { exp: 5 }
+          effects: { exp: 5, energy: -5 }
         }
       ]
     },
@@ -219,11 +238,12 @@ Game.Events_ch1 = [
         {
           text: "整理一下自己，准备去找红姐",
           next: "ch1_party_1",
-          effects: { exp: 5 }
+          effects: { exp: 5, energy: -5 }
         },
         {
           text: "先下楼去便利店补点东西",
-          next: "ch1_convenience_store_visit"
+          next: "ch1_convenience_store_visit",
+          effects: { energy: -5 }
         }
       ]
     },
@@ -255,12 +275,12 @@ Game.Events_ch1 = [
         {
           text: "回出租屋整理一下，再去赴约",
           next: "ch1_rental_to_evening",
-          effects: { hp: 5 }
+          effects: { hp: 5, energy: -5 }
         },
         {
           text: "直接出发去找红姐",
           next: "ch1_party_1",
-          effects: { exp: 5 }
+          effects: { exp: 5, energy: -5 }
         }
       ]
     },
@@ -279,12 +299,13 @@ Game.Events_ch1 = [
       options: [
         {
           text: "往人少的街角走走（可能有点危险）",
-          next: "ch1_street_random_hub"
+          next: "ch1_street_random_hub",
+          effects: { energy: -5 }
         },
         {
           text: "先记地图，等会儿从这边去找红姐",
           next: "ch1_rental_to_evening",
-          effects: { exp: 5 }
+          effects: { exp: 5, energy: -2 }
         }
       ]
     },
@@ -300,15 +321,18 @@ Game.Events_ch1 = [
       options: [
         {
           text: "进入工厂深处，寻找阴影战斗",
-          next: "ch1_training_battle"
+          next: "ch1_training_battle",
+          effects: { energy: -5 }
         },
         {
           text: "在工厂外围探索，看看有没有遗漏的物品",
-          next: "ch1_training_find_item"
+          next: "ch1_training_find_item",
+          effects: { energy: -5 }
         },
         {
           text: "离开这里，去其他地方",
-          next: "ch1_street_explore"
+          next: "ch1_street_explore",
+          effects: { energy: -5 }
         }
       ]
     },
@@ -323,7 +347,8 @@ Game.Events_ch1 = [
       options: [
         {
           text: "战斗！",
-          next: "ch1_training_after_battle"
+          next: "ch1_training_after_battle",
+          effects: { energy: -10 }
         }
       ]
     },
@@ -338,19 +363,22 @@ Game.Events_ch1 = [
         {
           text: "继续在这里练级（可重复）",
           next: "ch1_training_battle",
-          effects: { exp: 5 }
+          effects: { exp: 5, energy: -5 }
         },
         {
           text: "在工厂里探索，寻找物品",
-          next: "ch1_training_find_item"
+          next: "ch1_training_find_item",
+          effects: { energy: -5 }
         },
         {
           text: "离开工厂，去其他地方",
-          next: "ch1_training_area_hub"
+          next: "ch1_training_area_hub",
+          effects: { energy: -5 }
         },
         {
           text: "回出租屋休整",
-          next: "ch1_rental_night_cultivate"
+          next: "ch1_rental_night_cultivate",
+          effects: { energy: -5 }
         }
       ]
     },
@@ -437,12 +465,12 @@ Game.Events_ch1 = [
         "前面分成了三条小路：一条通向老旧居民楼，一条通向天桥，一条往河边走去。\n\n" +
         "直觉告诉你，每条路的故事都不太一样。",
       options: [
-        { text: "去老旧居民楼后面的小巷看看", next: "ch1_event_unlucky_fall" },
-        { text: "上天桥晃一圈，吹吹风", next: "ch1_event_lucky_money" },
-        { text: "往河边走走，看看夜景", next: "ch1_event_riverside_hint" },
-        { text: "注意到街边有个算命摊，过去看看", next: "ch1_event_fortune_teller" },
-        { text: "去附近的废弃工厂练级", next: "ch1_training_area_hub" },
-        { text: "在附近的小巷里探索", next: "ch1_explore_random" }
+        { text: "去老旧居民楼后面的小巷看看", next: "ch1_event_unlucky_fall", effects: { energy: -5 } },
+        { text: "上天桥晃一圈，吹吹风", next: "ch1_event_lucky_money", effects: { energy: -5 } },
+        { text: "往河边走走，看看夜景", next: "ch1_event_riverside_hint", effects: { energy: -5 } },
+        { text: "注意到街边有个算命摊，过去看看", next: "ch1_event_fortune_teller", effects: { energy: -5 } },
+        { text: "去附近的废弃工厂练级", next: "ch1_training_area_hub", effects: { energy: -5 } },
+        { text: "在附近的小巷里探索", next: "ch1_explore_random", effects: { energy: -5 } }
       ]
     },
     // ===== 随机探索事件（好运/霉运） =====
@@ -454,7 +482,7 @@ Game.Events_ch1 = [
         "你拐进一条不起眼的小巷，想看看能不能发现什么。\n\n" +
         "这里比主街安静得多，只有偶尔传来的脚步声和远处车辆的鸣笛。",
       options: [
-        { text: "继续探索", next: "ch1_explore_random_result" }
+        { text: "继续探索", next: "ch1_explore_random_result", effects: { energy: -5 } }
       ]
     },
     {
@@ -768,12 +796,13 @@ Game.Events_ch1 = [
       options: [
         {
           text: "这不对劲……准备战斗！",
-          next: "ch1_street_battle"
+          next: "ch1_street_battle",
+          effects: { energy: -10 }
         },
         {
           text: "当自己眼花了，快速离开这里",
           next: "ch1_rental_to_evening",
-          effects: { hp: -5, exp: 5 }
+          effects: { hp: -5, exp: 5, energy: -5 }
         }
       ]
     },
@@ -789,7 +818,8 @@ Game.Events_ch1 = [
       options: [
         {
           text: "战斗！",
-          next: "ch1_after_street_battle"
+          next: "ch1_after_street_battle",
+          effects: { energy: -10 }
         }
       ]
     },
@@ -807,17 +837,17 @@ Game.Events_ch1 = [
         {
           text: "记下这次战斗，回去好好整理一下状态",
           next: "ch1_rental_night_cultivate",
-          effects: { exp: 20, gold: 25 }
+          effects: { exp: 20, gold: 25, energy: -5 }
         },
         {
           text: "去废弃工厂继续练级，提升实力",
           next: "ch1_training_area_hub",
-          effects: { exp: 5 }
+          effects: { exp: 5, energy: -5 }
         },
         {
           text: "既然都这样了，今晚更要去见见红姐",
           next: "ch1_party_1",
-          effects: { exp: 10, gold: 20 }
+          effects: { exp: 10, gold: 20, energy: -5 }
         }
       ]
     },
@@ -832,24 +862,27 @@ Game.Events_ch1 = [
         "那场和阴影的战斗像梦一样，你却能清楚记得每一个动作背后灵力流动的轨迹。\n\n" +
         "你试着盘腿坐好，照着网文里写的那样调整呼吸。\n" +
         "意外的是——那股力量真的会回应你。\n\n" +
-        "（提示：你可以通过菜单进行修炼，或者去废弃工厂练级提升实力）",
+        "（提示：在出租屋主界面点击 [🧘 打坐修炼] 即可提升实力。修炼需要消耗精力和灵石。）",
       options: [
         {
           text: "继续打坐修炼一会儿",
           next: "ch1_cultivate_intro",
-          effects: { exp: 10, mp: 10 }
+          effects: { exp: 10, mp: 10, energy: -2 }
         },
         {
           text: "去废弃工厂练级，提升实力",
-          next: "ch1_training_area_hub"
+          next: "ch1_training_area_hub",
+          effects: { energy: -5 }
         },
         {
           text: "先整理一下背包和装备",
-          next: "ch1_menu_hint"
+          next: "ch1_menu_hint",
+          effects: { energy: -2 }
         },
         {
           text: "时间差不多了，去赴红姐的约",
-          next: "ch1_party_1"
+          next: "ch1_party_1",
+          effects: { energy: -5 }
         }
       ]
     },
@@ -862,12 +895,12 @@ Game.Events_ch1 = [
         "你闭上眼，呼吸变得平稳，灵力在身体里绕了一圈又一圈。\n\n" +
         "它似乎还很稚嫩，但已经不再是完全不可控的陌生存在。\n\n" +
         "你隐约意识到，这可能就是所谓的【灵根】在苏醒。\n\n" +
-        "（提示：你可以随时通过【菜单】中的「修炼」标签来进行修炼，缓慢提升自身实力。）",
+        "（提示：在出租屋主界面点击 [🧘 打坐修炼] 即可提升实力。修炼需要消耗精力和灵石。）",
       options: [
         {
           text: "记住这个感觉，停止修炼",
           next: "ch1_menu_hint",
-          effects: { exp: 10 }
+          effects: { exp: 10, energy: -2 }
         }
       ]
     },
@@ -886,11 +919,13 @@ Game.Events_ch1 = [
       options: [
         {
           text: "关闭界面，准备去见红姐",
-          next: "ch1_party_1"
+          next: "ch1_party_1",
+          effects: { energy: -5 }
         },
         {
           text: "再在附近街区走一圈，熟悉环境",
-          next: "ch1_street_explore"
+          next: "ch1_street_explore",
+          effects: { energy: -5 }
         }
       ]
     },
@@ -908,7 +943,7 @@ Game.Events_ch1 = [
         {
           text: "推门进去，寻找红姐的身影",
           next: "ch1_party_2",
-          effects: { exp: 5 }
+          effects: { exp: 5, energy: -5 }
         }
       ]
     },
@@ -928,7 +963,13 @@ Game.Events_ch1 = [
         {
           text: "走过去，和红姐打招呼",
           next: "ch1_party_3",
-          effects: { exp: 10 }
+          effects: { exp: 10, energy: -2 },
+          action: function() {
+              // 自动解锁红姐到人脉列表
+              if (Game.Social && Game.Social.meetNPC) {
+                  Game.Social.meetNPC("红姐");
+              }
+          }
         }
       ]
     },
@@ -946,12 +987,26 @@ Game.Events_ch1 = [
         {
           text: "顺着她的节奏打招呼，融入这桌人",
           next: "ch1_party_chat_1",
-          effects: { exp: 10 }
+          effects: { exp: 10, energy: -2 },
+          action: function() {
+              // 自动解锁红姐到人脉列表
+              if (Game.Social && Game.Social.meetNPC) {
+                  Game.Social.meetNPC("红姐");
+                  console.log("剧情触发：结识红姐");
+              }
+          }
         },
         {
           text: "一边寒暄，一边默默观察红姐的状态",
           next: "ch1_party_observe_1",
-          effects: { exp: 15 }
+          effects: { exp: 15, energy: -2 },
+          action: function() {
+              // 自动解锁红姐到人脉列表
+              if (Game.Social && Game.Social.meetNPC) {
+                  Game.Social.meetNPC("红姐");
+                  console.log("剧情触发：结识红姐");
+              }
+          }
         }
       ]
     },
@@ -969,7 +1024,8 @@ Game.Events_ch1 = [
       options: [
         {
           text: "在她忙完一圈后，找机会单独和她说几句",
-          next: "ch1_party_talk_private"
+          next: "ch1_party_talk_private",
+          effects: { energy: -2 }
         }
       ]
     },
@@ -988,7 +1044,7 @@ Game.Events_ch1 = [
         {
           text: "等她忙完一圈，找个角落单独聊聊",
           next: "ch1_party_talk_private",
-          effects: { exp: 10 }
+          effects: { exp: 10, energy: -2 }
         }
       ]
     },
@@ -1008,7 +1064,7 @@ Game.Events_ch1 = [
         {
           text: "顺着她的话问下去：你也是这样觉得的吗？",
           next: "ch1_party_deep_talk",
-          effects: { exp: 15 }
+          effects: { exp: 15, energy: -2 }
         }
       ]
     },
@@ -1048,12 +1104,12 @@ Game.Events_ch1 = [
         {
           text: "顺口接一句：我记住的可能是你。",
           next: "ch1_party_react_to_joke",
-          effects: { exp: 10 }
+          effects: { exp: 10, energy: -2 }
         },
         {
           text: "只是点点头，把这份坦白记在心里",
           next: "ch1_party_before_demon_entry",
-          effects: { exp: 5 }
+          effects: { exp: 5, energy: -2 }
         }
       ]
     },
@@ -1071,7 +1127,7 @@ Game.Events_ch1 = [
         {
           text: "你没有再拆开，只是把杯子举了举",
           next: "ch1_party_before_demon_entry",
-          effects: { exp: 5 }
+          effects: { exp: 5, energy: -2 }
         }
       ]
     },
@@ -1103,11 +1159,13 @@ Game.Events_ch1 = [
       options: [
         {
           text: "等她回来，看看她会说什么",
-          next: "ch1_party_before_demon"
+          next: "ch1_party_before_demon",
+          effects: { energy: -2 }
         },
         {
           text: "先去夜宵摊边吃边等",
-          next: "ch1_night_stall_visit"
+          next: "ch1_night_stall_visit",
+          effects: { energy: -5 }
         }
       ]
     },
@@ -1121,15 +1179,31 @@ Game.Events_ch1 = [
         "但你能看出那是刚刚调整好的表情。\n\n" +
         "「有个地方最近总出事。」她压低声音说，" +
         "「得去看一眼。你要不要跟我去见识一下真正的南昌夜生活？」\n\n" +
-        "她说“夜生活”的时候，眼神不像是在说玩乐，更像是在说另一层世界。",
+        "她说「夜生活」的时候，眼神不像是在说玩乐，更像是在说另一层世界。",
       options: [
         {
           text: "直接跟她一起去（硬核）",
-          next: "ch1_heart_demon_trigger"
+          next: "ch1_heart_demon_trigger",
+          effects: { energy: -5 },
+          action: function() {
+              // 保险起见：确保红姐已解锁到人脉列表
+              if (Game.Social && Game.Social.meetNPC) {
+                  Game.Social.meetNPC("红姐");
+                  console.log("剧情触发：确保红姐已解锁");
+              }
+          }
         },
         {
           text: "先回出租屋整理一下装备和丹药，再去",
-          next: "ch1_prepare_before_demon"
+          next: "ch1_prepare_before_demon",
+          effects: { energy: -5 },
+          action: function() {
+              // 保险起见：确保红姐已解锁到人脉列表
+              if (Game.Social && Game.Social.meetNPC) {
+                  Game.Social.meetNPC("红姐");
+                  console.log("剧情触发：确保红姐已解锁");
+              }
+          }
         }
       ]
     },
@@ -1149,19 +1223,23 @@ Game.Events_ch1 = [
       options: [
         {
           text: "去便利店补些丹药和食物",
-          next: "ch1_convenience_store_visit"
+          next: "ch1_convenience_store_visit",
+          effects: { energy: -5 }
         },
         {
           text: "再修炼一会儿，让自己心里踏实点",
-          next: "ch1_rental_night_cultivate"
+          next: "ch1_rental_night_cultivate",
+          effects: { energy: -2 }
         },
         {
           text: "去废弃工厂快速练级，提升实力",
-          next: "ch1_training_area_hub"
+          next: "ch1_training_area_hub",
+          effects: { energy: -5 }
         },
         {
           text: "觉得差不多了，去找红姐会合",
-          next: "ch1_heart_demon_trigger"
+          next: "ch1_heart_demon_trigger",
+          effects: { energy: -5 }
         }
       ]
     },
@@ -1182,7 +1260,8 @@ Game.Events_ch1 = [
       options: [
         {
           text: "点头，跟着她一步步走下去",
-          next: "ch1_heart_demon_trigger_2"
+          next: "ch1_heart_demon_trigger_2",
+          effects: { energy: -5 }
         }
       ]
     },
@@ -1205,7 +1284,8 @@ Game.Events_ch1 = [
       options: [
         {
           text: "点头，准备战斗",
-          next: "ch1_heart_demon_battle_intro"
+          next: "ch1_heart_demon_battle_intro",
+          effects: { energy: -10 }
         }
       ]
     },
@@ -1226,7 +1306,8 @@ Game.Events_ch1 = [
       options: [
         {
           text: "「……这就是你的心魔？」",
-          next: "ch1_heart_demon_battle"
+          next: "ch1_heart_demon_battle",
+          effects: { energy: -10 }
         }
       ]
     },
@@ -1242,7 +1323,8 @@ Game.Events_ch1 = [
       options: [
         {
           text: "战斗！",
-          next: "ch1_after_heart_demon"
+          next: "ch1_after_heart_demon",
+          effects: { energy: -10 }
         }
       ]
     },
@@ -1290,7 +1372,7 @@ Game.Events_ch1 = [
       ]
     },
   
-    // ===== 12. 第一章结束，进入第二章入口 =====
+    // ===== 12. 第一章结束，返回出租屋 =====
     {
       id: "ch1_party_end",
       type: "story",
@@ -1307,8 +1389,20 @@ Game.Events_ch1 = [
         "新的故事，正要开始。",
       options: [
         {
-          text: "继续游戏（进入第二章）",
-          next: "ch2_intro_1"
+          text: "完成章节，返回出租屋",
+          action: function() {
+              // 更新进度
+              Game.State.progress.currentChapter = 2;
+              Game.State.progress.currentEventId = "ch1_party_end";
+              
+              // 存档
+              if (Game.Save) {
+                  Game.Save.save();
+              }
+              
+              // 返回主界面
+              Game.Game.returnToHome();
+          }
         }
       ]
     }

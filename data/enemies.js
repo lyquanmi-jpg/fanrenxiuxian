@@ -16,6 +16,7 @@ Game.Enemies = {
           defense: 5,
           exp: 40,
           gold: 20,
+          spiritStones: 1,  // 掉落1枚灵石（必掉）
           // 掉落列表：{ itemId: 掉落概率(0-1) }
           drops: {
               "shadow_cloak": 0.15  // 阴影斗篷，15%概率
@@ -32,6 +33,7 @@ Game.Enemies = {
           defense: 5,
           exp: 50,
           gold: 25,
+          spiritStones: 1,  // 掉落1枚灵石（必掉）
           drops: {
               "anxiety_bracelet": 0.12  // 焦虑手环，12%概率
           }
@@ -47,6 +49,7 @@ Game.Enemies = {
           defense: 8,
           exp: 80,
           gold: 40,
+          spiritStones: 2,  // 掉落2枚灵石（必掉）
           drops: {
               "client_contract_shield": 0.20  // 甲方合同盾，20%概率
           }
@@ -64,6 +67,7 @@ Game.Enemies = {
           defense: 13,
           exp: 150,
           gold: 80,
+          spiritStones: 10,  // BOSS掉落10枚灵石
           // 三阶段机制
           phases: [
               {
@@ -115,7 +119,8 @@ Game.Enemies = {
           attack: 25,
           defense: 15,
           exp: 200,
-          gold: 100
+          gold: 100,
+          spiritStones: 8  // 掉落8枚灵石
       },
       "chunxia_demon": {
           id: "chunxia_demon",
@@ -127,7 +132,8 @@ Game.Enemies = {
           attack: 28,
           defense: 18,
           exp: 250,
-          gold: 120
+          gold: 120,
+          spiritStones: 10  // 掉落10枚灵石
       },
 
       // 最终 BOSS
@@ -141,7 +147,8 @@ Game.Enemies = {
           attack: 50,
           defense: 30,
           exp: 1000,
-          gold: 500
+          gold: 500,
+          spiritStones: 50  // 最终BOSS掉落50枚灵石
       }
   }
 };

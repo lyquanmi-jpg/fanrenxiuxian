@@ -27,14 +27,15 @@ Game.CoreConfig = {
 
     // 默认初始属性
     defaultStats: {
-        hp: 100,
-        maxHp: 100,
+        hp: 120,
+        maxHp: 120,
         mp: 50,
         maxMp: 50,
-        attack: 10,
-        defense: 5,
-        critRate: 0.05,
-        critDamage: 1.5
+        attack: 15,
+        defense: 8,
+        critRate: 0.1,
+        critDamage: 1.5,
+        spiritStones: 3  // 初始3枚灵石（新手福利，给3次修炼机会）
     },
 
     // 经验升级曲线（每级所需经验）
