@@ -36,11 +36,11 @@ Game.UI = {
       // 卡片数据
       const cards = [
           {
-              icon: "🧘",
-              title: "打坐修炼",
-              desc: `消耗: 10精力 + 1灵石`,
+              icon: player.isBottleneck ? "⚡" : "🧘",
+              title: player.isBottleneck ? "闭关突破" : "打坐修炼",
+              desc: player.isBottleneck ? this.getBreakthroughDesc() : `消耗: 10精力 + 1灵石`,
               onClick: () => Game.Game.onCultivateClick(),
-              disabled: player.energy < 10 || player.spiritStones < 1
+              disabled: player.isBottleneck ? this.isBreakthroughDisabled() : (player.energy < 10 || player.spiritStones < 1)
           },
           {
               icon: "🏙️",
@@ -64,18 +64,18 @@ Game.UI = {
               disabled: false
           },
           {
-              icon: "💼",
-              title: "打工搞钱",
-              desc: "消耗20精力，获得300-500元",
-              onClick: () => Game.Game.onWorkClick(),
-              disabled: player.energy < 20
+              icon: "🐾",
+              title: Game.State.pet.active ? "灵兽互动" : "空荡荡的猫窝",
+              desc: Game.State.pet.active ? `与${Game.State.pet.name || "小白"}互动` : "还没有灵兽",
+              onClick: () => this.showPetInteraction(),
+              disabled: !Game.State.pet.active
           },
           {
               icon: "⚒️",
               title: "炼丹/炼器",
-              desc: "敬请期待",
-              onClick: null,
-              disabled: true
+              desc: "使用素材制造丹药和装备",
+              onClick: () => this.showCraftingModal(),
+              disabled: false
           }
       ];
 
@@ -176,8 +176,8 @@ Game.UI = {
   // 选择章节
   selectChapter: function(chapterId) {
       if (chapterId === 1) {
-          // 强制重置：每次都从头开始（保留属性、背包和人脉数据不变，仅重置剧情点）
-          Game.State.progress.currentEventId = "ch1_intro_1";
+          // 通知 game.js 重置剧情点（UI 层不直接修改状态）
+          Game.Game.resetChapterProgress(1);
           
           // 切换到剧情模式
           this.showStoryMode();
@@ -425,6 +425,9 @@ Game.UI = {
   
   // 初始化战斗操作栏
   initBattleActionPanel: function() {
+      const battle = Game.Battle.currentBattle;
+      if (!battle) return; // 保护：如果没有战斗，直接返回
+      
       const actionPanel = document.getElementById("battle-action-panel");
       if (!actionPanel) return;
       
@@ -433,7 +436,7 @@ Game.UI = {
           actionPanel.removeChild(actionPanel.firstChild);
       }
       
-      // 创建普通攻击按钮
+      // 固定按钮：普通攻击
       const attackBtn = document.createElement("button");
       attackBtn.id = "battle-action-attack";
       attackBtn.className = "battle-action-btn";
@@ -443,23 +446,37 @@ Game.UI = {
       };
       actionPanel.appendChild(attackBtn);
       
-      // 创建技能按钮（如果学会了 qi_blast）
-      const hasQiBlast = Game.State.hasSkill("qi_blast");
-      if (hasQiBlast) {
-          const skill = Game.Battle.getSkillData("qi_blast");
-          if (skill) {
-              const skillBtn = document.createElement("button");
-              skillBtn.id = "battle-action-skill";
-              skillBtn.className = "battle-action-btn";
-              skillBtn.textContent = `🔥 ${skill.name} (消耗${skill.mpCost}MP)`;
-              skillBtn.onclick = () => {
-                  Game.Battle.executePlayerAction('skill');
-              };
-              actionPanel.appendChild(skillBtn);
+      // 动态遍历：所有已学技能
+      const learnedSkills = Game.State.learnedSkills || [];
+      learnedSkills.forEach(skillId => {
+          const skill = Game.Battle.getSkillData(skillId);
+          if (!skill) return;
+          
+          const skillBtn = document.createElement("button");
+          skillBtn.id = `battle-action-skill-${skillId}`;
+          skillBtn.className = "battle-action-btn";
+          
+          // 根据技能类型添加样式类
+          const skillType = skill.type || "damage";
+          if (skillType === "heal") {
+              skillBtn.classList.add("btn-heal");
+          } else if (skillType === "buff") {
+              skillBtn.classList.add("btn-buff");
           }
-      }
+          
+          // 技能按钮文本（简化显示）
+          const skillIcon = skillType === "heal" ? "💚" : skillType === "buff" ? "🛡️" : "🔥";
+          skillBtn.textContent = `${skillIcon} ${skill.name}`;
+          skillBtn.title = `${skill.description || skill.name} (消耗${skill.mpCost}MP)`;
+          
+          skillBtn.onclick = () => {
+              Game.Battle.useSkillInManualBattle(skillId);
+          };
+          
+          actionPanel.appendChild(skillBtn);
+      });
       
-      // 创建快速结束按钮
+      // 固定按钮：快速结束
       const skipBtn = document.createElement("button");
       skipBtn.id = "battle-action-skip";
       skipBtn.className = "battle-action-btn";
@@ -818,8 +835,10 @@ Game.UI = {
   
   // 启用玩家操作按钮
   enablePlayerActions: function() {
+      const battle = Game.Battle.currentBattle;
+      if (!battle) return; // 保护：如果没有战斗，直接返回
+      
       const attackBtn = document.getElementById("battle-action-attack");
-      const skillBtn = document.getElementById("battle-action-skill");
       const actionPanel = document.getElementById("battle-action-panel");
       
       if (attackBtn) {
@@ -828,12 +847,12 @@ Game.UI = {
           attackBtn.style.cursor = "pointer";
       }
       
-      if (skillBtn) {
-          const battle = Game.Battle.currentBattle;
-          if (battle) {
-              const hasQiBlast = Game.State.hasSkill("qi_blast");
-              const skill = hasQiBlast ? Game.Battle.getSkillData("qi_blast") : null;
-              
+      // 更新所有技能按钮状态
+      const learnedSkills = Game.State.learnedSkills || [];
+      learnedSkills.forEach(skillId => {
+          const skillBtn = document.getElementById(`battle-action-skill-${skillId}`);
+          if (skillBtn) {
+              const skill = Game.Battle.getSkillData(skillId);
               if (skill && battle.playerStats.mp >= skill.mpCost) {
                   skillBtn.disabled = false;
                   skillBtn.style.opacity = "1";
@@ -844,7 +863,7 @@ Game.UI = {
                   skillBtn.style.cursor = "not-allowed";
               }
           }
-      }
+      });
       
       if (actionPanel) {
           actionPanel.style.display = "flex";
@@ -863,11 +882,16 @@ Game.UI = {
           attackBtn.style.cursor = "not-allowed";
       }
       
-      if (skillBtn) {
-          skillBtn.disabled = true;
-          skillBtn.style.opacity = "0.5";
-          skillBtn.style.cursor = "not-allowed";
-      }
+      // 禁用所有技能按钮
+      const learnedSkills = Game.State.learnedSkills || [];
+      learnedSkills.forEach(skillId => {
+          const skillBtn = document.getElementById(`battle-action-skill-${skillId}`);
+          if (skillBtn) {
+              skillBtn.disabled = true;
+              skillBtn.style.opacity = "0.5";
+              skillBtn.style.cursor = "not-allowed";
+          }
+      });
       
       if (actionPanel) {
           actionPanel.style.display = "none";
@@ -1075,14 +1099,19 @@ Game.UI = {
                           }).filter(s => s).join(" | ")}
                       </div>
                       ` : ""}
-                      <div style="font-size: 11px; color: #888; margin-top: 4px;">出售价格: ¥${sellPrice}/个</div>
+                      ${item.type === "material" ? `
+                      <div style="font-size: 11px; color: #88ff88; margin-top: 4px; font-style: italic;">
+                          💎 用于炼丹或炼器的基础材料
+                      </div>
+                      ` : ""}
+                      <div style="font-size: 11px; color: #888; margin-top: 4px;">${item.type === "material" ? "不可出售" : `出售价格: ¥${sellPrice}/个`}</div>
                   </div>
                   <div class="inventory-item-count">x${count}</div>
                   <div class="inventory-item-actions">
                       ${item.type === "equipment" ? `<button class="inventory-action-btn" onclick="Game.Game.onEquipItemFromMenu('${item.slot}', '${itemId}')">装备</button>` : ""}
                       ${item.type === "consumable" ? `<button class="inventory-action-btn" onclick="Game.Game.onItemUseFromMenu('${itemId}')">使用</button>` : ""}
                       ${item.type === "skill_book" ? `<button class="inventory-action-btn" onclick="Game.Game.onItemUseFromMenu('${itemId}')" style="background-color: ${Game.State.hasSkill(item.skill.id) ? '#555' : '#ffaa00'}; color: #fff; ${Game.State.hasSkill(item.skill.id) ? 'cursor: not-allowed; opacity: 0.6;' : ''}" ${Game.State.hasSkill(item.skill.id) ? 'disabled' : ''}>${Game.State.hasSkill(item.skill.id) ? '已学会' : '学习'}</button>` : ""}
-                      <button class="inventory-action-btn" onclick="Game.Game.onItemSellFromMenu('${itemId}', ${count})" style="background-color: #4a9eff; color: #fff;">出售</button>
+                      ${item.type !== "material" ? `<button class="inventory-action-btn" onclick="Game.Game.onItemSellFromMenu('${itemId}', ${count})" style="background-color: #4a9eff; color: #fff;">出售</button>` : ""}
                   </div>
               </div>
           `;
@@ -1266,9 +1295,9 @@ Game.UI = {
       const content = document.getElementById("menu-tab-social");
       if (!content) return;
 
-      // 确保 relationships 对象存在
+      // 确保 relationships 对象存在（如果不存在，由 state.js 初始化）
       if (!Game.State.relationships) {
-          Game.State.relationships = {};
+          Game.State.initRelationships();
       }
 
       // 获取所有已结识的 NPC（met 为 true 的）
@@ -1384,8 +1413,23 @@ Game.UI = {
 
       overlay.style.display = "flex";
       if (shopName) shopName.textContent = shopConfig.name || "商店";
-      // Todo: 根据商店类型显示 money 或 spiritStones
-      if (shopGold) shopGold.textContent = `¥${Game.State.player.money || 0}`;
+      
+      // 检查商店是否有灵石商品，决定显示哪种货币
+      const hasSpiritStoneItems = shopConfig.items.some(shopItem => {
+          const itemId = shopItem.itemId || shopItem;
+          const item = Game.Items.byId[itemId];
+          const currency = shopItem.currency || item?.currency || "money";
+          return currency === "spiritStones";
+      });
+      
+      // 显示货币（如果商店有灵石商品，显示两种货币）
+      if (shopGold) {
+          if (hasSpiritStoneItems) {
+              shopGold.innerHTML = `人民币: ¥${Game.State.player.money || 0} | 灵石: 💎${Game.State.player.spiritStones || 0}`;
+          } else {
+              shopGold.textContent = `¥${Game.State.player.money || 0}`;
+          }
+      }
 
       if (shopItemsList) {
           let html = "";
@@ -1395,16 +1439,25 @@ Game.UI = {
               const item = Game.Items.byId[itemId];
               if (!item) return;
 
-              // Todo: 根据物品类型判断使用 money 还是 spiritStones
-              const canAfford = Game.State.player.money >= price;
+              // 确定使用的货币类型
+              const currency = shopItem.currency || item.currency || "money";
+              const canAfford = currency === "spiritStones" 
+                  ? (Game.State.player.spiritStones || 0) >= price
+                  : (Game.State.player.money || 0) >= price;
+              
+              // 根据货币类型设置价格显示样式
+              const priceText = currency === "spiritStones" 
+                  ? `<span style="color: #4a9eff; font-weight: bold;">💎${price} 灵石</span>`
+                  : `<span style="color: #ffaa00;">¥${price}</span>`;
+              
               html += `
                   <div class="shop-item-card">
                       <div class="shop-item-card-info">
                           <div class="shop-item-card-name">${item.name}</div>
                           <div class="shop-item-card-desc">${item.description || ""}</div>
-                          <div class="shop-item-card-price">¥${price}</div>
+                          <div class="shop-item-card-price">${priceText}</div>
                       </div>
-                      <button class="shop-item-card-btn" ${!canAfford ? "disabled" : ""} onclick="if(Game.Shop.buy('${itemId}', ${price})) { Game.UI.refreshShopView(); }">
+                      <button class="shop-item-card-btn" ${!canAfford ? "disabled" : ""} onclick="if(Game.Shop.buy('${itemId}', ${price}, '${currency}')) { Game.UI.refreshShopView(); }">
                           购买
                       </button>
                   </div>
@@ -1426,18 +1479,41 @@ Game.UI = {
   // 刷新商店界面
   refreshShopView: function() {
       const shopGold = document.getElementById("shop-current-gold");
-      // Todo: 根据商店类型显示 money 或 spiritStones
-      if (shopGold) shopGold.textContent = `¥${Game.State.player.money || 0}`;
+      const shopItemsList = document.getElementById("shop-items-list");
+      
+      // 检查是否有灵石商品
+      const hasSpiritStoneItems = shopItemsList && Array.from(shopItemsList.querySelectorAll(".shop-item-card")).some(card => {
+          const priceEl = card.querySelector(".shop-item-card-price");
+          return priceEl && priceEl.innerHTML.includes("灵石");
+      });
+      
+      // 更新货币显示
+      if (shopGold) {
+          if (hasSpiritStoneItems) {
+              shopGold.innerHTML = `人民币: ¥${Game.State.player.money || 0} | 灵石: 💎${Game.State.player.spiritStones || 0}`;
+          } else {
+              shopGold.textContent = `¥${Game.State.player.money || 0}`;
+          }
+      }
 
       // 重新渲染购买按钮状态
-      const shopItemsList = document.getElementById("shop-items-list");
       if (shopItemsList) {
           const buttons = shopItemsList.querySelectorAll(".shop-item-card-btn");
           buttons.forEach(btn => {
-              const priceText = btn.parentElement.querySelector(".shop-item-card-price")?.textContent || "";
+              const priceEl = btn.parentElement.querySelector(".shop-item-card-price");
+              if (!priceEl) return;
+              
+              // 判断货币类型
+              const isSpiritStone = priceEl.innerHTML.includes("灵石");
+              const priceText = priceEl.textContent || "";
               const price = parseInt(priceText.replace(/[^0-9]/g, "") || "0");
-              // Todo: 根据物品类型判断使用 money 还是 spiritStones
-              btn.disabled = Game.State.player.money < price;
+              
+              // 根据货币类型检查是否足够
+              if (isSpiritStone) {
+                  btn.disabled = (Game.State.player.spiritStones || 0) < price;
+              } else {
+                  btn.disabled = (Game.State.player.money || 0) < price;
+              }
           });
       }
 
@@ -1480,22 +1556,53 @@ Game.UI = {
       }
   },
 
+  // 获取突破描述信息
+  getBreakthroughDesc: function() {
+      const player = Game.State.player;
+      const currentRealm = Game.CoreConfig.realms.find(r => r.id === player.realm);
+      if (!currentRealm || !currentRealm.breakthrough) {
+          return "已达到最高境界";
+      }
+
+      const breakthrough = currentRealm.breakthrough;
+      const chanceText = (breakthrough.baseChance * 100).toFixed(0) + "%";
+      
+      if (breakthrough.reqItem) {
+          const item = Game.Items.byId[breakthrough.reqItem];
+          const itemName = item ? item.name : breakthrough.reqItem;
+          const haveCount = Game.State.getItemCount(breakthrough.reqItem);
+          const hasItem = haveCount >= 1;
+          
+          if (hasItem) {
+              return `突破几率: ${chanceText} | 需要: ${itemName} x1 (已拥有)`;
+          } else {
+              return `突破几率: ${chanceText} | 需要: ${itemName} x1 (未拥有)`;
+          }
+      } else {
+          return `突破几率: ${chanceText}`;
+      }
+  },
+
+  // 检查突破是否可用
+  isBreakthroughDisabled: function() {
+      const player = Game.State.player;
+      const currentRealm = Game.CoreConfig.realms.find(r => r.id === player.realm);
+      if (!currentRealm || !currentRealm.breakthrough) {
+          return true;
+      }
+
+      const breakthrough = currentRealm.breakthrough;
+      if (breakthrough.reqItem) {
+          const haveCount = Game.State.getItemCount(breakthrough.reqItem);
+          return haveCount < 1;
+      }
+
+      return false;
+  },
+
   // 更新都市行动按钮和突破按钮的显示状态
   updateActionButtons: function() {
       const player = Game.State.player;
-      
-      // 更新尝试突破按钮的显示
-      const breakthroughBtn = document.getElementById("btn-attempt-breakthrough");
-      const breakthroughPanel = document.getElementById("breakthrough-panel");
-      if (breakthroughBtn && breakthroughPanel) {
-          if (player.isBottleneck) {
-              breakthroughPanel.style.display = "block";
-              breakthroughBtn.style.display = "block";
-          } else {
-              breakthroughPanel.style.display = "none";
-              breakthroughBtn.style.display = "none";
-          }
-      }
       
       // 更新打工按钮的可用状态（根据精力）
       const workBtn = document.getElementById("btn-work");
@@ -1873,5 +1980,620 @@ Game.UI = {
       const selectedGift = giftableItems[index];
       Game.Game.onNPCGift(npcId, selectedGift.id);
       this.closeNPCInteraction();
+  },
+
+  // 显示制造界面（炼丹/炼器）
+  showCraftingModal: function() {
+      // 创建遮罩层
+      const overlay = document.createElement("div");
+      overlay.id = "crafting-overlay";
+      overlay.style.cssText = `
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background: rgba(0, 0, 0, 0.8);
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          z-index: 2000;
+          padding: 20px;
+          box-sizing: border-box;
+      `;
+
+      // 创建容器
+      const container = document.createElement("div");
+      container.className = "crafting-modal-container";
+      container.style.cssText = `
+          background: #1a1a1a;
+          border: 2px solid #4a9eff;
+          border-radius: 8px;
+          max-width: 800px;
+          width: 100%;
+          max-height: 85vh;
+          display: flex;
+          flex-direction: column;
+          overflow: hidden;
+          box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+      `;
+
+      // 创建头部
+      const header = document.createElement("div");
+      header.style.cssText = `
+          flex-shrink: 0;
+          padding: 16px 20px;
+          border-bottom: 1px solid #333;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          background: #1a1a1a;
+      `;
+      header.innerHTML = `
+          <h2 style="color: #4a9eff; margin: 0; font-size: 18px;">⚒️ 炼丹/炼器</h2>
+          <button class="menu-close-btn" onclick="Game.UI.closeCraftingModal()" style="background: none; border: none; color: #888; font-size: 24px; cursor: pointer; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;">×</button>
+      `;
+
+      // 创建内容区域（可滚动）
+      const content = document.createElement("div");
+      content.className = "crafting-content";
+      content.style.cssText = `
+          flex: 1;
+          overflow-y: auto;
+          overflow-x: hidden;
+          padding: 20px;
+          -webkit-overflow-scrolling: touch;
+          min-height: 0;
+          display: flex;
+          gap: 20px;
+      `;
+
+      // 左侧：配方列表
+      const recipeList = document.createElement("div");
+      recipeList.style.cssText = `
+          flex: 1;
+          min-width: 300px;
+      `;
+
+      // 右侧：配方详情
+      const recipeDetail = document.createElement("div");
+      recipeDetail.id = "crafting-recipe-detail";
+      recipeDetail.style.cssText = `
+          flex: 1;
+          min-width: 300px;
+          background: #2a2a2a;
+          border-radius: 8px;
+          padding: 20px;
+      `;
+
+      content.appendChild(recipeList);
+      content.appendChild(recipeDetail);
+
+      // 渲染配方列表
+      this.renderCraftingRecipeList(recipeList, recipeDetail);
+
+      // 组装
+      container.appendChild(header);
+      container.appendChild(content);
+      overlay.appendChild(container);
+      document.body.appendChild(overlay);
+  },
+
+  // 渲染配方列表
+  renderCraftingRecipeList: function(container, detailContainer) {
+      if (!container) return;
+
+      // 分类显示
+      const alchemyRecipes = Game.Recipes.getByType("alchemy");
+      const craftingRecipes = Game.Recipes.getByType("crafting");
+
+      let html = `
+          <div style="margin-bottom: 20px;">
+              <h3 style="color: #4a9eff; font-size: 16px; margin-bottom: 10px;">💊 炼丹配方</h3>
+              <div style="display: flex; flex-direction: column; gap: 8px;">
+      `;
+
+      alchemyRecipes.forEach(recipe => {
+          const canCraft = Game.Crafting.canCraft(recipe.id);
+          html += `
+              <div class="crafting-recipe-item" 
+                   onclick="Game.UI.selectCraftingRecipe('${recipe.id}')"
+                   style="
+                       padding: 12px;
+                       background: ${canCraft.canCraft ? '#2a2a2a' : '#1a1a1a'};
+                       border: 1px solid ${canCraft.canCraft ? '#4a9eff' : '#444'};
+                       border-radius: 6px;
+                       cursor: pointer;
+                       transition: all 0.15s ease;
+                       opacity: ${canCraft.canCraft ? '1' : '0.6'};
+                   ">
+                  <div style="display: flex; align-items: center; gap: 10px;">
+                      <span style="font-size: 20px;">${recipe.icon || '⚒️'}</span>
+                      <div style="flex: 1;">
+                          <div style="color: ${canCraft.canCraft ? '#fff' : '#888'}; font-weight: bold; font-size: 14px;">${recipe.name}</div>
+                          <div style="color: #888; font-size: 12px; margin-top: 4px;">${recipe.description}</div>
+                      </div>
+                  </div>
+              </div>
+          `;
+      });
+
+      html += `
+              </div>
+          </div>
+          <div>
+              <h3 style="color: #4a9eff; font-size: 16px; margin-bottom: 10px;">⚔️ 炼器配方</h3>
+              <div style="display: flex; flex-direction: column; gap: 8px;">
+      `;
+
+      craftingRecipes.forEach(recipe => {
+          const canCraft = Game.Crafting.canCraft(recipe.id);
+          html += `
+              <div class="crafting-recipe-item" 
+                   onclick="Game.UI.selectCraftingRecipe('${recipe.id}')"
+                   style="
+                       padding: 12px;
+                       background: ${canCraft.canCraft ? '#2a2a2a' : '#1a1a1a'};
+                       border: 1px solid ${canCraft.canCraft ? '#4a9eff' : '#444'};
+                       border-radius: 6px;
+                       cursor: pointer;
+                       transition: all 0.15s ease;
+                       opacity: ${canCraft.canCraft ? '1' : '0.6'};
+                   ">
+                  <div style="display: flex; align-items: center; gap: 10px;">
+                      <span style="font-size: 20px;">${recipe.icon || '⚒️'}</span>
+                      <div style="flex: 1;">
+                          <div style="color: ${canCraft.canCraft ? '#fff' : '#888'}; font-weight: bold; font-size: 14px;">${recipe.name}</div>
+                          <div style="color: #888; font-size: 12px; margin-top: 4px;">${recipe.description}</div>
+                      </div>
+                  </div>
+              </div>
+          `;
+      });
+
+      html += `
+              </div>
+          </div>
+      `;
+
+      container.innerHTML = html;
+
+      // 默认选择第一个配方
+      if (alchemyRecipes.length > 0) {
+          this.selectCraftingRecipe(alchemyRecipes[0].id);
+      } else if (craftingRecipes.length > 0) {
+          this.selectCraftingRecipe(craftingRecipes[0].id);
+      }
+  },
+
+  // 选择配方（显示详情）
+  selectCraftingRecipe: function(recipeId) {
+      const recipe = Game.Recipes.get(recipeId);
+      if (!recipe) return;
+
+      const detailContainer = document.getElementById("crafting-recipe-detail");
+      if (!detailContainer) return;
+
+      const canCraft = Game.Crafting.canCraft(recipeId);
+      const resultItem = Game.Items.byId[recipe.result.itemId];
+
+      // 构建材料需求显示
+      let materialsHtml = `<div style="margin-top: 15px;"><div style="color: #4a9eff; font-size: 14px; font-weight: bold; margin-bottom: 10px;">材料需求：</div>`;
+      
+      recipe.materials.forEach(material => {
+          const materialItem = Game.Items.byId[material.itemId];
+          const haveCount = Game.Crafting.getMaterialCount(material.itemId);
+          const enough = haveCount >= material.count;
+          const materialName = materialItem ? materialItem.name : material.itemId;
+          
+          materialsHtml += `
+              <div style="
+                  padding: 8px;
+                  margin-bottom: 6px;
+                  background: ${enough ? 'rgba(74, 158, 255, 0.1)' : 'rgba(255, 0, 0, 0.1)'};
+                  border-left: 3px solid ${enough ? '#4a9eff' : '#ff4444'};
+                  border-radius: 3px;
+                  font-size: 13px;
+              ">
+                  <span style="color: ${enough ? '#88ff88' : '#ff8888'};">
+                      ${enough ? '✅' : '❌'}
+                  </span>
+                  <span style="color: ${enough ? '#fff' : '#888'};">
+                      ${materialName}: ${haveCount}/${material.count}
+                  </span>
+                  ${!enough ? `<span style="color: #ff8888; margin-left: 8px;">(不足)</span>` : `<span style="color: #88ff88; margin-left: 8px;">(充足)</span>`}
+              </div>
+          `;
+      });
+
+      // 灵石需求
+      if (recipe.spiritStonesCost > 0) {
+          const haveStones = Game.State.player.spiritStones || 0;
+          const enough = haveStones >= recipe.spiritStonesCost;
+          materialsHtml += `
+              <div style="
+                  padding: 8px;
+                  margin-bottom: 6px;
+                  background: ${enough ? 'rgba(74, 158, 255, 0.1)' : 'rgba(255, 0, 0, 0.1)'};
+                  border-left: 3px solid ${enough ? '#4a9eff' : '#ff4444'};
+                  border-radius: 3px;
+                  font-size: 13px;
+              ">
+                  <span style="color: ${enough ? '#88ff88' : '#ff8888'};">
+                      ${enough ? '✅' : '❌'}
+                  </span>
+                  <span style="color: ${enough ? '#fff' : '#888'};">
+                      💎 灵石: ${haveStones}/${recipe.spiritStonesCost}
+                  </span>
+                  ${!enough ? `<span style="color: #ff8888; margin-left: 8px;">(不足)</span>` : `<span style="color: #88ff88; margin-left: 8px;">(充足)</span>`}
+              </div>
+          `;
+      }
+
+      materialsHtml += `</div>`;
+
+      // 成品信息
+      let resultHtml = "";
+      if (resultItem) {
+          resultHtml = `
+              <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #333;">
+                  <div style="color: #4a9eff; font-size: 14px; font-weight: bold; margin-bottom: 10px;">制造结果：</div>
+                  <div style="padding: 12px; background: rgba(74, 158, 255, 0.1); border-radius: 6px;">
+                      <div style="color: #88ff88; font-size: 16px; font-weight: bold; margin-bottom: 6px;">
+                          ${recipe.icon || '⚒️'} ${resultItem.name} x${recipe.result.count || 1}
+                      </div>
+                      <div style="color: #999; font-size: 12px;">${resultItem.description || ''}</div>
+                  </div>
+              </div>
+          `;
+      }
+
+      detailContainer.innerHTML = `
+          <div style="color: #4a9eff; font-size: 18px; font-weight: bold; margin-bottom: 10px;">
+              ${recipe.icon || '⚒️'} ${recipe.name}
+          </div>
+          <div style="color: #999; font-size: 14px; margin-bottom: 15px; line-height: 1.6;">
+              ${recipe.description}
+          </div>
+          ${materialsHtml}
+          ${resultHtml}
+          <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #333;">
+              <button 
+                  id="craft-btn-${recipeId}"
+                  onclick="Game.UI.executeCraft('${recipeId}')"
+                  style="
+                      width: 100%;
+                      padding: 14px;
+                      font-size: 16px;
+                      font-weight: bold;
+                      border: none;
+                      border-radius: 8px;
+                      cursor: ${canCraft.canCraft ? 'pointer' : 'not-allowed'};
+                      background: ${canCraft.canCraft ? 'linear-gradient(135deg, #4a9eff, #2d5aa0)' : '#555'};
+                      color: #fff;
+                      transition: all 0.15s ease;
+                      opacity: ${canCraft.canCraft ? '1' : '0.6'};
+                  "
+                  ${!canCraft.canCraft ? 'disabled' : ''}
+              >
+                  ${canCraft.canCraft ? '⚒️ 开始制造' : '❌ 材料不足'}
+              </button>
+          </div>
+      `;
+
+      // 更新选中状态
+      document.querySelectorAll(".crafting-recipe-item").forEach(item => {
+          item.style.background = "#1a1a1a";
+          item.style.borderColor = "#444";
+      });
+      const selectedItem = document.querySelector(`[onclick="Game.UI.selectCraftingRecipe('${recipeId}')"]`);
+      if (selectedItem) {
+          selectedItem.style.background = "#2a2a2a";
+          selectedItem.style.borderColor = "#4a9eff";
+      }
+  },
+
+  // 执行制造
+  executeCraft: function(recipeId) {
+      const result = Game.Crafting.craft(recipeId);
+      
+      if (result.success) {
+          alert(result.message);
+          // 刷新界面
+          const overlay = document.getElementById("crafting-overlay");
+          if (overlay) {
+              const recipeList = overlay.querySelector(".crafting-content > div:first-child");
+              const recipeDetail = document.getElementById("crafting-recipe-detail");
+              if (recipeList && recipeDetail) {
+                  this.renderCraftingRecipeList(recipeList, recipeDetail);
+                  // 重新选择当前配方
+                  this.selectCraftingRecipe(recipeId);
+              }
+          }
+      } else {
+          alert(result.message || "制造失败");
+      }
+  },
+
+  // 刷新制造界面
+  refreshCraftingView: function() {
+      const overlay = document.getElementById("crafting-overlay");
+      if (!overlay) return;
+
+      const recipeList = overlay.querySelector(".crafting-content > div:first-child");
+      const recipeDetail = document.getElementById("crafting-recipe-detail");
+      if (recipeList && recipeDetail) {
+          // 获取当前选中的配方
+          const craftBtn = recipeDetail.querySelector("button");
+          let currentRecipeId = null;
+          if (craftBtn && craftBtn.id) {
+              currentRecipeId = craftBtn.id.replace("craft-btn-", "");
+          }
+
+          this.renderCraftingRecipeList(recipeList, recipeDetail);
+          
+          // 恢复选中状态
+          if (currentRecipeId) {
+              this.selectCraftingRecipe(currentRecipeId);
+          }
+      }
+  },
+
+  // 关闭制造界面
+  closeCraftingModal: function() {
+      const overlay = document.getElementById("crafting-overlay");
+      if (overlay) {
+          overlay.remove();
+      }
+      // 刷新主界面，确保按钮状态更新（如突破按钮）
+      this.renderHomeCards();
+  },
+
+  // 显示灵兽互动界面
+  showPetInteraction: function() {
+      const pet = Game.State.pet;
+      if (!pet.active || !pet.id) {
+          alert("你还没有灵兽。");
+          return;
+      }
+
+      const petData = Game.Pets.get(pet.id);
+      if (!petData) {
+          alert("灵兽数据错误。");
+          return;
+      }
+
+      const petName = pet.name || petData.name;
+      const petLevel = pet.level || 1;
+      const petAttack = Game.Pets.calculateAttack(pet.id, petLevel);
+      const petAffinity = pet.affinity || 0;
+      const maxExp = petLevel * 100;
+      const isLevelCapped = petLevel >= Game.State.player.level;
+
+      let html = `
+          <div class="modal-container" style="max-width: 400px;">
+              <div class="modal-header">
+                  <h2>🐾 ${petName}</h2>
+              </div>
+              <div class="modal-content" style="padding: 20px;">
+                  <div style="text-align: center; margin-bottom: 20px;">
+                      <div style="font-size: 48px;">🐱</div>
+                      <div style="margin-top: 10px; color: #888;">${petData.description}</div>
+                  </div>
+                  
+                  <div style="background: #2a2a2a; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                      <div style="margin-bottom: 8px;"><strong>等级：</strong> Lv.${petLevel} ${isLevelCapped ? '<span style="color: #ffaa00;">(已达上限)</span>' : ''}</div>
+                      <div style="margin-bottom: 8px;"><strong>攻击力：</strong> ${petAttack}</div>
+                      <div style="margin-bottom: 8px;"><strong>技能：</strong> ${petData.skill.name} (${(() => {
+                          const baseRate = petData.skill.rate || 0.3;
+                          // 好感度每10点增加0.5%触发率，最高增加10%
+                          const affinityBonus = Math.min(0.1, Math.floor(petAffinity / 10) * 0.005);
+                          const totalRate = baseRate + affinityBonus;
+                          const bonusText = affinityBonus > 0 ? ` (+${(affinityBonus * 100).toFixed(1)}%)` : '';
+                          return `${(totalRate * 100).toFixed(1)}%${bonusText}`;
+                      })()} 概率触发)</div>
+                      <div style="margin-bottom: 8px;"><strong>经验值：</strong> ${pet.exp || 0} / ${maxExp}</div>
+                      <div><strong>好感度：</strong> ${petAffinity}</div>
+                  </div>
+
+                  <div style="color: #4a9eff; font-size: 14px; margin-bottom: 15px;">
+                      ${petData.trueName ? `真实身份：${petData.trueName}` : ""}
+                  </div>
+
+                  <div style="background: #1a1a2e; padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #4a9eff;">
+                      <div style="color: #4a9eff; font-weight: bold; margin-bottom: 10px; font-size: 16px;">【羁绊加成】</div>
+                      ${(() => {
+                          const bonuses = Game.Pets.getAffinityBonuses(pet.id);
+                          let html = '';
+                          if (petData.affinityBonuses) {
+                              petData.affinityBonuses.forEach(bonus => {
+                                  const isUnlocked = petAffinity >= bonus.threshold;
+                                  const icon = isUnlocked ? '✅' : '🔒';
+                                  const color = isUnlocked ? '#4cff4c' : '#666';
+                                  html += `<div style="color: ${color}; margin: 5px 0; font-size: 14px;">${icon} [${bonus.threshold}好感] ${bonus.description}</div>`;
+                              });
+                          }
+                          if (html === '') {
+                              html = '<div style="color: #888; font-size: 12px;">暂无羁绊加成</div>';
+                          }
+                          return html;
+                      })()}
+                      <div style="color: #888; font-size: 12px; margin-top: 10px;">
+                          投喂灵气可提升好感，解锁强力助战效果。
+                      </div>
+                  </div>
+
+                  <div style="text-align: center; color: #888; font-size: 12px; margin-bottom: 15px;">
+                      灵兽会在战斗中自动助战，无需手动操作。
+                  </div>
+
+                  <div style="display: flex; gap: 10px; margin-top: 20px;">
+                      <button class="ui-button" onclick="Game.UI.showPetFeedMenu()" style="flex: 1;">🥣 投喂灵气</button>
+                  </div>
+              </div>
+              <div style="padding: 15px; border-top: 1px solid #333;">
+                  <button class="ui-button secondary" onclick="Game.UI.closeModal()" style="width: 100%;">关闭</button>
+              </div>
+          </div>
+      `;
+
+      const modal = document.createElement("div");
+      modal.className = "modal-overlay";
+      modal.innerHTML = html;
+      document.body.appendChild(modal);
+
+      // 点击遮罩关闭
+      modal.addEventListener("click", function(e) {
+          if (e.target === modal) {
+              document.body.removeChild(modal);
+          }
+      });
+  },
+
+  // 显示喂食菜单
+  showPetFeedMenu: function() {
+      const pet = Game.State.pet;
+      if (!pet || !pet.active) {
+          alert("灵兽未激活");
+          return;
+      }
+
+      // 获取背包中所有可喂食的物品
+      const feedableItems = [];
+      const inventory = Game.State.inventory || {};
+      
+      for (let itemId in inventory) {
+          if (inventory[itemId] > 0) {
+              const item = Game.Items.byId[itemId];
+              if (item && item.type !== "quest" && itemId !== "spell_book_qi_blast" && itemId !== "foundation_pill") {
+                  // 计算经验值
+                  const expGain = Math.max(1, Math.floor((item.price || 10) / 10));
+                  feedableItems.push({
+                      id: itemId,
+                      name: item.name,
+                      count: inventory[itemId],
+                      expGain: expGain
+                  });
+              }
+          }
+      }
+
+      if (feedableItems.length === 0) {
+          alert("背包中没有可喂食的物品。");
+          return;
+      }
+
+      let html = `
+          <div class="modal-container" style="max-width: 450px;">
+              <div class="modal-header">
+                  <h2>🥣 投喂灵气</h2>
+              </div>
+              <div class="modal-content" style="padding: 20px; max-height: 400px; overflow-y: auto;">
+                  <div style="margin-bottom: 15px; color: #888; font-size: 14px;">
+                      选择要喂给${pet.name || "小白"}的物品。物品会转化为经验值和好感度。
+                  </div>
+                  <div style="display: flex; flex-direction: column; gap: 8px;">
+      `;
+
+      feedableItems.forEach(item => {
+          const onClickHandler = item.count > 1 
+              ? `Game.UI.feedPetItemWithAmount('${item.id}', ${item.count})`
+              : `Game.UI.feedPetItem('${item.id}')`;
+          html += `
+              <button class="ui-button" onclick="${onClickHandler}" style="text-align: left; justify-content: space-between; display: flex; padding: 12px;">
+                  <span><strong>${item.name}</strong> x${item.count}</span>
+                  <span style="color: #4a9eff;">+${item.expGain} 经验/个</span>
+              </button>
+          `;
+      });
+
+      html += `
+                  </div>
+              </div>
+              <div style="padding: 15px; border-top: 1px solid #333;">
+                  <button class="ui-button secondary" onclick="Game.UI.closeModal()" style="width: 100%;">返回</button>
+              </div>
+          </div>
+      `;
+
+      const modal = document.createElement("div");
+      modal.className = "modal-overlay";
+      modal.innerHTML = html;
+      document.body.appendChild(modal);
+
+      // 点击遮罩关闭
+      modal.addEventListener("click", function(e) {
+          if (e.target === modal) {
+              document.body.removeChild(modal);
+          }
+      });
+  },
+
+  // 喂食物品（单个）
+  feedPetItem: function(itemId) {
+      const result = Game.Pets.feed(itemId, 1);
+      
+      if (result.success) {
+          alert(result.message);
+          // 关闭喂食菜单
+          this.closeModal();
+          // 刷新灵兽界面
+          setTimeout(() => {
+              this.showPetInteraction();
+          }, 100);
+      } else {
+          alert(result.message);
+      }
+  },
+
+  // 喂食物品（批量）
+  feedPetItemWithAmount: function(itemId, maxCount) {
+      const item = Game.Items.byId[itemId];
+      if (!item) {
+          alert("物品不存在");
+          return;
+      }
+
+      const currentCount = Game.State.getItemCount(itemId);
+      if (currentCount < 1) {
+          alert("物品数量不足");
+          return;
+      }
+
+      // 使用 prompt 询问数量
+      const input = prompt(`请输入投喂数量 (1-${currentCount})：`, currentCount);
+      if (input === null) {
+          return; // 用户取消
+      }
+
+      const amount = parseInt(input);
+      if (isNaN(amount) || amount < 1 || amount > currentCount) {
+          alert(`输入无效，请输入 1-${currentCount} 之间的数字。`);
+          return;
+      }
+
+      const result = Game.Pets.feed(itemId, amount);
+      
+      if (result.success) {
+          alert(result.message);
+          // 关闭喂食菜单
+          this.closeModal();
+          // 刷新灵兽界面
+          setTimeout(() => {
+              this.showPetInteraction();
+          }, 100);
+      } else {
+          alert(result.message);
+      }
+  },
+
+  // 关闭模态框（通用）
+  closeModal: function() {
+      const modals = document.querySelectorAll(".modal-overlay");
+      modals.forEach(modal => {
+          if (modal.parentNode) {
+              modal.parentNode.removeChild(modal);
+          }
+      });
   }
 };

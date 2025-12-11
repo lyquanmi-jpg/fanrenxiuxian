@@ -12,9 +12,10 @@ Game.Game = {
       Game.State.progress.currentChapter = 1;
 
       // 必须确保 relationships 对象存在，否则 meetNPC 会报错或无效
-      if (!Game.State.relationships) {
-          Game.State.relationships = {};
-      }
+      Game.State.initRelationships();
+      
+      // 初始化 flags
+      Game.State.initFlags();
 
       // 初始化 NPC 关系（从 npcs.js 同步初始数据）
       this.initNPCRelationships();
@@ -23,11 +24,19 @@ Game.Game = {
       this.goToEvent("ch1_intro_1");
   },
 
+  // 重置章节进度（保留属性、背包和人脉数据，仅重置剧情点）
+  resetChapterProgress: function(chapterId) {
+      if (chapterId === 1) {
+          Game.State.progress.currentEventId = "ch1_intro_1";
+          Game.State.progress.currentChapter = 1;
+          // 切换到剧情模式
+          this.goToEvent("ch1_intro_1");
+      }
+  },
+
   // 初始化 NPC 关系
   initNPCRelationships: function() {
-      if (!Game.State.relationships) {
-          Game.State.relationships = {};
-      }
+      Game.State.initRelationships();
 
       // 如果 npcData 存在，同步初始数据
       if (typeof npcData !== 'undefined') {
@@ -125,45 +134,6 @@ Game.Game = {
           }
       }
       
-      // 检查是否需要动态修改文本（针对技能书事件）
-      if (event.id === "ch1_event_fortune_teller_get_book") {
-          const hasBook = Game.State.getItemCount("spell_book_qi_blast") > 0;
-          const hasSkill = Game.State.hasSkill("qi_blast");
-          
-          if (hasSkill) {
-              // 如果已学会技能，修改文本
-              const modifiedEvent = Object.assign({}, event);
-              modifiedEvent.text = 
-                  "你接过那本破旧的小册子，但发现你已经学会了这个技能。\n\n" +
-                  "「看来你已经掌握了，」算命先生点点头，「那这本书对你来说就没用了。」\n\n" +
-                  "他把书收了回去。";
-              // 移除添加物品的效果
-              if (modifiedEvent.options && modifiedEvent.options[0] && modifiedEvent.options[0].effects) {
-                  delete modifiedEvent.options[0].effects.item;
-              }
-              Game.UI.renderTextEvent(modifiedEvent, (event, option) => {
-                  this.handleOptionSelect(modifiedEvent, option);
-              });
-              this.updateUI();
-              return;
-          } else if (hasBook) {
-              // 如果已有技能书，修改文本
-              const modifiedEvent = Object.assign({}, event);
-              modifiedEvent.text = 
-                  "你接过那本破旧的小册子，但发现你背包里已经有一本了。\n\n" +
-                  "「你已经有了，」算命先生说，「好好修炼吧。」";
-              // 移除添加物品的效果
-              if (modifiedEvent.options && modifiedEvent.options[0] && modifiedEvent.options[0].effects) {
-                  delete modifiedEvent.options[0].effects.item;
-              }
-              Game.UI.renderTextEvent(modifiedEvent, (event, option) => {
-                  this.handleOptionSelect(modifiedEvent, option);
-              });
-              this.updateUI();
-              return;
-          }
-      }
-      
       // 检查是否需要动态修改文本（针对装备事件）
       if (event.id === "ch1_rental_find_item") {
           const hasSword = Game.State.getItemCount("starter_sword") > 0;
@@ -212,6 +182,20 @@ Game.Game = {
               this.updateUI();
               return;
           }
+      }
+
+      // 检查是否有直接跳转（event.next）且没有选项
+      if (event.next && (!event.options || event.options.length === 0)) {
+          // 应用事件效果
+          if (event.effects) {
+              this.applyEffects(event.effects);
+          }
+          // 直接跳转到下一个事件
+          setTimeout(() => {
+              this.goToEvent(event.next);
+          }, 100);
+          this.updateUI();
+          return;
       }
 
       Game.UI.renderTextEvent(event, (event, option) => {
@@ -340,6 +324,13 @@ Game.Game = {
           
           Game.State.addItem(effects.item.id, effects.item.count || 1);
       }
+      
+      // 处理 flag 设置（用于解锁机制）
+      if (effects.flag) {
+          Game.State.initFlags();
+          Game.State.flags[effects.flag] = true;
+          console.log(`设置标志位：${effects.flag} = true`);
+      }
 
       this.updateUI();
   },
@@ -452,6 +443,15 @@ Game.Game = {
   // 修炼点击
   lastCultivateMessage: "",
   onCultivateClick: function() {
+      const player = Game.State.player;
+      
+      // 如果遇到瓶颈，执行突破
+      if (player.isBottleneck) {
+          this.onAttemptBreakthrough();
+          return;
+      }
+      
+      // 否则执行普通修炼
       const result = Game.State.doCultivate();
       if (result.success) {
           this.lastCultivateMessage = result.message;
@@ -632,17 +632,25 @@ Game.Game = {
   // 尝试突破境界
   onAttemptBreakthrough: function() {
       const result = Game.State.attemptBreakthrough();
-      if (result) {
-          if (result.success) {
-              alert(result.message || "恭喜！你成功突破了境界！");
-              this.updateUI();
-              Game.UI.renderMenuContent();
-              // 自动存档（突破后）
-              Game.Save.save();
+      
+      // 显示结果消息
+      if (result.success) {
+          alert(result.message || "恭喜！你成功突破了境界！");
+      } else {
+          // 根据失败原因显示不同提示
+          if (result.reason === "missing_item") {
+              const itemName = result.itemName || "所需物品";
+              alert(`${result.message}\n\n提示：你可以在"炼丹/炼器"界面制造突破丹药。`);
           } else {
               alert(result.message || "无法突破境界。");
           }
       }
+      
+      // 自动存档（突破后）
+      Game.Save.save();
+      this.updateUI();
+      Game.UI.renderMenuContent();
+      Game.UI.renderHomeCards();  // 刷新主界面卡片（更新按钮状态）
   },
 
   // 城市探索

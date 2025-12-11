@@ -21,6 +21,20 @@ Game.Battle = {
           return;
       }
 
+      // 检查灵兽好感度护盾（100好感度）
+      const pet = Game.State.pet;
+      let startShield = 0;
+      if (pet && pet.active && pet.id) {
+          const bonuses = Game.Pets.getAffinityBonuses(pet.id);
+          const shieldBonus = bonuses.find(b => b.effect.startShield);
+          if (shieldBonus) {
+              const playerStats = Game.State.getEffectiveStats();
+              startShield = Math.floor(playerStats.maxHp * shieldBonus.effect.startShield);
+              // 直接加到当前HP（不超过上限）
+              Game.State.changeHP(startShield);
+          }
+      }
+
       this.currentBattle = {
           enemy: {
               id: enemyId,
@@ -40,6 +54,11 @@ Game.Battle = {
       
       // 显示战斗弹窗
       Game.UI.showBattleView(this.currentBattle);
+      
+      // 如果有护盾，显示提示
+      if (startShield > 0) {
+          this.addBattleLog(`【兽王威压】${pet.name || "小白"}的威压为你提供了 ${startShield} 点护盾！`, true);
+      }
       
       // 开始自动战斗（简化版：自动播放战报）
       this.startAutoBattleLog();
@@ -191,62 +210,103 @@ Game.Battle = {
           // 普通攻击
           this.playerNormalAttack(false);
       } else if (actionType === 'skill') {
-          // 技能攻击（使用 qi_blast）
-          const hasQiBlast = Game.State.hasSkill("qi_blast");
-          const skill = hasQiBlast ? this.getSkillData("qi_blast") : null;
-          
-          if (!skill) {
+          // 兼容旧代码：如果传入的是 'skill'，使用第一个可用技能
+          const learnedSkills = Game.State.learnedSkills || [];
+          if (learnedSkills.length === 0) {
               this.addBattleLog(`你还没有学会任何技能！`, true);
               Game.UI.enablePlayerActions();
               return;
           }
           
-          if (battle.playerStats.mp < skill.mpCost) {
-              this.addBattleLog(`灵力不足，无法使用 ${skill.name}！`, true);
-              Game.UI.enablePlayerActions();
-              return;
-          }
+          // 使用第一个技能（通常用于兼容旧代码）
+          const firstSkillId = learnedSkills[0];
+          this.useSkillInManualBattle(firstSkillId);
           
-          // 消耗MP
-          Game.State.changeMP(-skill.mpCost);
-          battle.playerStats = Game.State.getEffectiveStats();
-          
-          // 计算技能伤害
-          let damage = Math.floor(battle.playerStats.attack * skill.damageMultiplier) - battle.enemy.defense;
-          if (damage < 1) damage = 1;
-          
-          // 暴击判定
-          const isCrit = Math.random() < battle.playerStats.critRate;
-          if (isCrit) {
-              damage = Math.floor(damage * battle.playerStats.critDamage);
-              this.addBattleLog(`你凝聚灵气，发射了一枚【${skill.name}】！`, false);
-              this.addBattleLog(`暴击！对 ${battle.enemy.name} 造成了 ${damage} 点伤害！`, false);
-          } else {
-              this.addBattleLog(`你凝聚灵气，发射了一枚【${skill.name}】！`, false);
-              this.addBattleLog(`对 ${battle.enemy.name} 造成了 ${damage} 点伤害！`, false);
-          }
-          
-          battle.enemy.hp -= damage;
-          battle.enemy.hp = Math.max(0, battle.enemy.hp);
-          
-          this.addBattleLog(`消耗了 ${skill.mpCost} 点灵力。`, false);
-          
-          // 更新血条
-          Game.UI.updateBattleHpBar(battle);
-          
-          // 检查敌人是否死亡
-          if (battle.enemy.hp <= 0) {
-              setTimeout(() => {
-                  this.showBattleResult(true);
-              }, 1000);
-              return;
-          }
+          // 注意：useSkillInManualBattle 内部会处理敌人回合，这里不需要再次调用
+          return;
       }
       
-      // 延迟后进入敌人回合
+      // 延迟后执行灵宠助战，然后进入敌人回合（仅普通攻击）
       setTimeout(() => {
-          this.startEnemyTurn();
+          this.executePetAttack();
+          setTimeout(() => {
+              this.startEnemyTurn();
+          }, 1000);
       }, 1000);
+  },
+  
+  // 灵宠助战（在玩家行动结束后、敌人回合开始前执行）
+  executePetAttack: function() {
+      const battle = this.currentBattle;
+      if (!battle) return;
+      
+      const pet = Game.State.pet;
+      // 检查是否有激活的灵宠
+      if (!pet || !pet.active || !pet.id) {
+          return; // 没有灵宠，直接返回
+      }
+      
+      const petData = Game.Pets.get(pet.id);
+      if (!petData) {
+          console.warn("灵宠数据不存在：", pet.id);
+          return;
+      }
+      
+      const petName = pet.name || petData.name;
+      const petLevel = pet.level || 1;
+      const petAttack = Game.Pets.calculateAttack(pet.id, petLevel);
+      
+      // 检查敌人是否已死亡
+      if (battle.enemy.hp <= 0) {
+          return; // 敌人已死，不需要攻击
+      }
+      
+      // 计算伤害（基础攻击力）
+      let damage = petAttack;
+      
+      // 计算技能触发率（基础 + 好感度加成）
+      const baseRate = petData.skill.rate || 0.3;
+      const petAffinity = pet.affinity || 0;
+      // 好感度每10点增加0.5%触发率，最高增加10%
+      const affinityBonus = Math.min(0.1, Math.floor(petAffinity / 10) * 0.005);
+      const totalSkillRate = baseRate + affinityBonus;
+      
+      // 检查是否触发技能
+      const skillTriggered = Math.random() < totalSkillRate;
+      if (skillTriggered && petData.skill.effect === "damage") {
+          // 技能伤害（使用倍率）
+          damage = Math.floor(damage * (petData.skill.damageMultiplier || 1.5));
+          this.addBattleLog(`【${petName}】使用了【${petData.skill.name}】！`, false);
+      }
+      
+      // 应用伤害
+      battle.enemy.hp = Math.max(0, battle.enemy.hp - damage);
+      
+      // 显示战报
+      if (skillTriggered) {
+          this.addBattleLog(`${petName}对敌人造成了 ${damage} 点伤害！`, false);
+      } else {
+          this.addBattleLog(`${petName}冲上去挠了敌人一下，造成 ${damage} 点伤害！`, false);
+      }
+      
+      // 更新UI
+      Game.UI.updateBattleHpBar(battle);
+      
+      // 检查战斗是否结束（灵宠击杀敌人）
+      if (battle.enemy.hp <= 0) {
+          setTimeout(() => {
+              this.showBattleResult(true);
+          }, 500);
+      }
+      
+      // 灵宠获得经验（每次攻击获得少量经验）
+      pet.exp += 5;
+      const expForNextLevel = petLevel * 100;
+      if (pet.exp >= expForNextLevel) {
+          pet.level += 1;
+          pet.exp = 0;
+          this.addBattleLog(`【${petName}】升级了！当前等级：Lv.${pet.level}`, false);
+      }
   },
   
   // 开始敌人回合
@@ -268,6 +328,15 @@ Game.Battle = {
       // 延迟1000ms模拟思考
       setTimeout(() => {
           this.enemyTurnInAutoBattle(false);
+          
+          // 减少Buff回合数
+          if (Game.State.battleBuffs.defenseBonusTurns > 0) {
+              Game.State.battleBuffs.defenseBonusTurns--;
+              if (Game.State.battleBuffs.defenseBonusTurns <= 0) {
+                  Game.State.battleBuffs.defenseBonus = 0;
+                  this.addBattleLog("【金刚护体】效果已消失。", false);
+              }
+          }
           
           // 更新血条
           Game.UI.updateBattleHpBar(battle);
@@ -293,42 +362,128 @@ Game.Battle = {
       const player = battle.playerStats;
       const enemy = battle.enemy;
       
-      // 检查是否学会 qi_blast 技能，30%概率使用
-      const hasQiBlast = Game.State.hasSkill("qi_blast");
-      const skill = hasQiBlast ? this.getSkillData("qi_blast") : null;
-      const useSkill = hasQiBlast && skill && Math.random() < 0.3 && player.mp >= skill.mpCost;
+      // 检查已学会的技能，优先使用治疗（低血量时）或Buff（防御低时），否则使用伤害技能
+      const learnedSkills = Game.State.learnedSkills || [];
+      let selectedSkill = null;
       
-      if (useSkill && skill) {
-          // 使用技能攻击
-          // 消耗MP
-          Game.State.changeMP(-skill.mpCost);
-          battle.playerStats = Game.State.getEffectiveStats();
-          
-          // 计算技能伤害（使用技能的伤害倍数）
-          let damage = Math.floor(player.attack * skill.damageMultiplier) - enemy.defense;
-          if (damage < 1) damage = 1;
-          
-          // 暴击判定
-          const isCrit = Math.random() < player.critRate;
-          if (isCrit) {
-              damage = Math.floor(damage * player.critDamage);
-              this.addBattleLog(`你凝聚灵气，发射了一枚【${skill.name}】！`, skipMode);
-              this.addBattleLog(`暴击！对 ${enemy.name} 造成了 ${damage} 点伤害！`, skipMode);
-          } else {
-              this.addBattleLog(`你凝聚灵气，发射了一枚【${skill.name}】！`, skipMode);
-              this.addBattleLog(`对 ${enemy.name} 造成了 ${damage} 点伤害！`, skipMode);
+      // 低血量时优先使用治疗技能（HP < 70% 即可使用）
+      if (player.hp < player.maxHp * 0.7) {
+          const healSkill = learnedSkills.find(skillId => {
+              const skill = this.getSkillData(skillId);
+              return skill && skill.type === "heal" && player.mp >= skill.mpCost;
+          });
+          if (healSkill) {
+              selectedSkill = this.getSkillData(healSkill);
           }
+      }
+      
+      // 如果防御较低且没有防御Buff，优先使用Buff技能（只要MP充足就使用）
+      if (!selectedSkill && (!Game.State.battleBuffs.defenseBonus || Game.State.battleBuffs.defenseBonusTurns <= 1)) {
+          const buffSkill = learnedSkills.find(skillId => {
+              const skill = this.getSkillData(skillId);
+              return skill && skill.type === "buff" && player.mp >= skill.mpCost;
+          });
+          if (buffSkill) {
+              // 只要MP充足且无Buff，优先使用（不再随机判定）
+              selectedSkill = this.getSkillData(buffSkill);
+          }
+      }
+      
+      // 否则使用伤害技能（当MP > 30%时，80%概率使用技能）
+      if (!selectedSkill) {
+          const mpPercent = player.mp / player.maxMp;
+          const useSkillChance = mpPercent > 0.3 ? 0.8 : 0.3; // MP充足时80%概率，不足时30%概率
           
-          enemy.hp -= damage;
-          enemy.hp = Math.max(0, enemy.hp);
-          
-          this.addBattleLog(`消耗了 ${skill.mpCost} 点灵力。`, skipMode);
+          if (Math.random() < useSkillChance) {
+              const damageSkills = learnedSkills.filter(skillId => {
+                  const skill = this.getSkillData(skillId);
+                  return skill && (skill.type === "damage" || !skill.type) && player.mp >= skill.mpCost;
+              });
+              if (damageSkills.length > 0) {
+                  const randomSkillId = damageSkills[Math.floor(Math.random() * damageSkills.length)];
+                  selectedSkill = this.getSkillData(randomSkillId);
+              }
+          }
+      }
+      
+      if (selectedSkill && player.mp >= selectedSkill.mpCost) {
+          // 使用技能（调用统一的技能处理逻辑）
+          this.useSkillInAutoBattle(selectedSkill, skipMode);
       } else {
           // 使用普攻
           this.playerNormalAttack(skipMode);
       }
       
       // 注意：战斗结束检查在 battleTurnLoop 中进行，这里不需要检查
+  },
+
+  // 在自动战斗中使用技能（统一处理所有技能类型）
+  useSkillInAutoBattle: function(skill, skipMode) {
+      const battle = this.currentBattle;
+      if (!battle) return;
+      
+      const player = battle.playerStats;
+      const enemy = battle.enemy;
+      
+      // 消耗MP
+      Game.State.changeMP(-skill.mpCost);
+      battle.playerStats = Game.State.getEffectiveStats();
+      
+      const skillType = skill.type || "damage";
+      
+      if (skillType === "heal") {
+          // 治疗技能
+          const healAmount = Math.floor(player.maxHp * skill.healPercent);
+          Game.State.changeHP(healAmount);
+          battle.playerStats = Game.State.getEffectiveStats();
+          this.addBattleLog(`你使用了【${skill.name}】！`, skipMode);
+          this.addBattleLog(`恢复了 ${healAmount} 点气血！`, skipMode);
+      } else if (skillType === "buff") {
+          // Buff技能
+          if (skill.buffType === "defense") {
+              Game.State.battleBuffs.defenseBonus = skill.buffValue;
+              Game.State.battleBuffs.defenseBonusTurns = skill.buffDuration;
+              battle.playerStats = Game.State.getEffectiveStats();
+              this.addBattleLog(`你使用了【${skill.name}】！`, skipMode);
+              this.addBattleLog(`防御力提升 ${(skill.buffValue * 100).toFixed(0)}%，持续 ${skill.buffDuration} 回合！`, skipMode);
+          }
+      } else {
+          // 伤害技能（支持多段攻击）
+          const hitCount = skill.hitCount || 1;
+          let totalDamage = 0;
+          let critCount = 0;
+          
+          for (let i = 0; i < hitCount; i++) {
+              let damage = Math.floor(player.attack * skill.damageMultiplier) - enemy.defense;
+              if (damage < 1) damage = 1;
+              
+              const isCrit = Math.random() < player.critRate;
+              if (isCrit) {
+                  damage = Math.floor(damage * player.critDamage);
+                  critCount++;
+              }
+              
+              totalDamage += damage;
+          }
+          
+          enemy.hp -= totalDamage;
+          enemy.hp = Math.max(0, enemy.hp);
+          
+          if (hitCount > 1) {
+              this.addBattleLog(`你使用了【${skill.name}】！`, skipMode);
+              this.addBattleLog(`剑阵飞舞，对 ${enemy.name} 造成了 ${hitCount} 次攻击！`, skipMode);
+              this.addBattleLog(`总计 ${totalDamage} 点伤害${critCount > 0 ? `（${critCount}次暴击）` : ''}！`, skipMode);
+          } else {
+              this.addBattleLog(`你使用了【${skill.name}】！`, skipMode);
+              if (critCount > 0) {
+                  this.addBattleLog(`暴击！对 ${enemy.name} 造成了 ${totalDamage} 点伤害！`, skipMode);
+              } else {
+                  this.addBattleLog(`对 ${enemy.name} 造成了 ${totalDamage} 点伤害！`, skipMode);
+              }
+          }
+      }
+      
+      this.addBattleLog(`消耗了 ${skill.mpCost} 点灵力。`, skipMode);
   },
 
   // 玩家普通攻击
@@ -567,6 +722,12 @@ Game.Battle = {
           this.playerTurnInAutoBattle(true); // true 表示跳过模式
           
           // 如果敌人已死，跳出
+          if (battle.enemy.hp <= 0) break;
+          
+          // 灵宠助战（在玩家回合后、敌人回合前）
+          this.executePetAttack();
+          
+          // 如果敌人已死（被灵宠击杀），跳出
           if (battle.enemy.hp <= 0) break;
           
           // 敌人回合
@@ -997,26 +1158,70 @@ Game.Battle = {
       // 更新UI状态栏显示
       Game.Game.updateUI();
 
-      // 计算技能伤害（基于攻击力的倍数，使用更新后的状态）
       const updatedPlayer = battle.playerStats;
-      let damage = Math.floor(updatedPlayer.attack * skill.damageMultiplier) - enemy.defense;
-      if (damage < 1) damage = 1;
+      const skillType = skill.type || "damage";  // 默认伤害类型
+      let skillMessage = "";
 
-      // 暴击判定
-      if (Math.random() < updatedPlayer.critRate) {
-          damage = Math.floor(damage * updatedPlayer.critDamage);
-          console.log("技能暴击！");
+      // 根据技能类型处理
+      if (skillType === "heal") {
+          // 治疗技能
+          const healAmount = Math.floor(updatedPlayer.maxHp * skill.healPercent);
+          Game.State.changeHP(healAmount);
+          battle.playerStats = Game.State.getEffectiveStats();
+          skillMessage = `你使用了【${skill.name}】！\n恢复了 ${healAmount} 点气血！\n消耗了 ${skill.mpCost} 点灵力。`;
+          this.addBattleLog(`你使用了【${skill.name}】！`, false);
+          this.addBattleLog(`恢复了 ${healAmount} 点气血！`, false);
+      } else if (skillType === "buff") {
+          // Buff技能
+          if (skill.buffType === "defense") {
+              Game.State.battleBuffs.defenseBonus = skill.buffValue;
+              Game.State.battleBuffs.defenseBonusTurns = skill.buffDuration;
+              battle.playerStats = Game.State.getEffectiveStats();
+              skillMessage = `你使用了【${skill.name}】！\n防御力提升 ${(skill.buffValue * 100).toFixed(0)}%，持续 ${skill.buffDuration} 回合！\n消耗了 ${skill.mpCost} 点灵力。`;
+              this.addBattleLog(`你使用了【${skill.name}】！`, false);
+              this.addBattleLog(`防御力提升 ${(skill.buffValue * 100).toFixed(0)}%，持续 ${skill.buffDuration} 回合！`, false);
+          }
+      } else {
+          // 伤害技能（支持多段攻击）
+          const hitCount = skill.hitCount || 1;
+          let totalDamage = 0;
+          let critCount = 0;
+          
+          for (let i = 0; i < hitCount; i++) {
+              let damage = Math.floor(updatedPlayer.attack * skill.damageMultiplier) - enemy.defense;
+              if (damage < 1) damage = 1;
+              
+              // 每段攻击独立判定暴击
+              const isCrit = Math.random() < updatedPlayer.critRate;
+              if (isCrit) {
+                  damage = Math.floor(damage * updatedPlayer.critDamage);
+                  critCount++;
+              }
+              
+              totalDamage += damage;
+          }
+          
+          enemy.hp -= totalDamage;
+          enemy.hp = Math.max(0, enemy.hp);
+          
+          if (hitCount > 1) {
+              skillMessage = `你使用了【${skill.name}】！\n剑阵飞舞，对 ${enemy.name} 造成了 ${hitCount} 次攻击！\n总计 ${totalDamage} 点伤害${critCount > 0 ? `（${critCount}次暴击）` : ''}！\n消耗了 ${skill.mpCost} 点灵力。`;
+              this.addBattleLog(`你使用了【${skill.name}】！`, false);
+              this.addBattleLog(`剑阵飞舞，对 ${enemy.name} 造成了 ${hitCount} 次攻击！`, false);
+              this.addBattleLog(`总计 ${totalDamage} 点伤害${critCount > 0 ? `（${critCount}次暴击）` : ''}！`, false);
+          } else {
+              skillMessage = `你使用了【${skill.name}】！\n对 ${enemy.name} 造成了 ${totalDamage} 点伤害${critCount > 0 ? '（暴击）' : ''}！\n消耗了 ${skill.mpCost} 点灵力。`;
+              this.addBattleLog(`你使用了【${skill.name}】！`, false);
+              this.addBattleLog(`对 ${enemy.name} 造成了 ${totalDamage} 点伤害${critCount > 0 ? '（暴击）' : ''}！`, false);
+          }
       }
-
-      enemy.hp -= damage;
-      enemy.hp = Math.max(0, enemy.hp);
 
       const textEl = document.getElementById("event-text");
       if (textEl) {
-          textEl.textContent = `战斗进行中...\n\n你使用了 ${skill.name}！\n对 ${enemy.name} 造成了 ${damage} 点伤害！\n消耗了 ${skill.mpCost} 点灵力。\n\n当前灵力：${battle.playerStats.mp}/${battle.playerStats.maxMp}`;
+          textEl.textContent = `战斗进行中...\n\n${skillMessage}\n\n当前灵力：${battle.playerStats.mp}/${battle.playerStats.maxMp}`;
       }
 
-      console.log(`你使用 ${skill.name} 对 ${enemy.name} 造成了 ${damage} 点伤害，消耗 ${skill.mpCost} MP，剩余 ${battle.playerStats.mp} MP`);
+      console.log(`你使用 ${skill.name}，消耗 ${skill.mpCost} MP，剩余 ${battle.playerStats.mp} MP`);
 
       // 检查敌人是否被击败
       if (enemy.hp <= 0) {
@@ -1029,28 +1234,112 @@ Game.Battle = {
 
       // 敌人回合
       setTimeout(() => {
-          this.enemyTurn();
-          // 如果正在自动战斗，在敌人回合后继续自动战斗循环
-          if (this.isAutoBattle && this.currentBattle) {
-              const battle = this.currentBattle;
-              battle.playerStats = Game.State.getEffectiveStats();
-              // 检查战斗是否结束
-              if (battle.playerStats.hp <= 0) {
-                  this.stopAutoBattle();
-                  return; // enemyTurn 会处理失败
-              }
-              if (battle.enemy.hp <= 0) {
-                  this.stopAutoBattle();
-                  return; // 会在 enemyTurn 后处理
-              }
-              // 继续自动战斗
-              setTimeout(() => {
-                  if (this.isAutoBattle && this.currentBattle) {
-                      this.autoBattleLoop();
-                  }
-              }, 500);
-          }
+          this.startEnemyTurn();
       }, 1500);
+  },
+
+  // 在手动战斗中使用技能（统一处理所有技能类型）
+  useSkillInManualBattle: function(skillId) {
+      const battle = this.currentBattle;
+      if (!battle) return;
+      
+      const player = battle.playerStats;
+      const enemy = battle.enemy;
+      const skill = this.getSkillData(skillId);
+
+      if (!skill) {
+          console.error(`技能 ${skillId} 不存在`);
+          Game.UI.enablePlayerActions();
+          return;
+      }
+
+      // 检查MP是否足够
+      if (player.mp < skill.mpCost) {
+          this.addBattleLog(`灵力不足，无法使用 ${skill.name}！`, false);
+          Game.UI.enablePlayerActions();
+          return;
+      }
+
+      // 消耗MP（先扣除，再更新状态）
+      Game.State.changeMP(-skill.mpCost);
+      battle.playerStats = Game.State.getEffectiveStats();
+      Game.Game.updateUI();
+
+      const updatedPlayer = battle.playerStats;
+      const skillType = skill.type || "damage";
+      
+      if (skillType === "heal") {
+          // 治疗技能
+          const healAmount = Math.floor(updatedPlayer.maxHp * skill.healPercent);
+          Game.State.changeHP(healAmount);
+          battle.playerStats = Game.State.getEffectiveStats();
+          this.addBattleLog(`你使用了【${skill.name}】！`, false);
+          this.addBattleLog(`恢复了 ${healAmount} 点气血！`, false);
+      } else if (skillType === "buff") {
+          // Buff技能
+          if (skill.buffType === "defense") {
+              Game.State.battleBuffs.defenseBonus = skill.buffValue;
+              Game.State.battleBuffs.defenseBonusTurns = skill.buffDuration;
+              battle.playerStats = Game.State.getEffectiveStats();
+              this.addBattleLog(`你使用了【${skill.name}】！`, false);
+              this.addBattleLog(`防御力提升 ${(skill.buffValue * 100).toFixed(0)}%，持续 ${skill.buffDuration} 回合！`, false);
+          }
+      } else {
+          // 伤害技能（支持多段攻击）
+          const hitCount = skill.hitCount || 1;
+          let totalDamage = 0;
+          let critCount = 0;
+          
+          for (let i = 0; i < hitCount; i++) {
+              let damage = Math.floor(updatedPlayer.attack * skill.damageMultiplier) - enemy.defense;
+              if (damage < 1) damage = 1;
+              
+              const isCrit = Math.random() < updatedPlayer.critRate;
+              if (isCrit) {
+                  damage = Math.floor(damage * updatedPlayer.critDamage);
+                  critCount++;
+              }
+              
+              totalDamage += damage;
+          }
+          
+          enemy.hp -= totalDamage;
+          enemy.hp = Math.max(0, enemy.hp);
+          
+          if (hitCount > 1) {
+              this.addBattleLog(`你使用了【${skill.name}】！`, false);
+              this.addBattleLog(`剑阵飞舞，对 ${enemy.name} 造成了 ${hitCount} 次攻击！`, false);
+              this.addBattleLog(`总计 ${totalDamage} 点伤害${critCount > 0 ? `（${critCount}次暴击）` : ''}！`, false);
+          } else {
+              this.addBattleLog(`你使用了【${skill.name}】！`, false);
+              if (critCount > 0) {
+                  this.addBattleLog(`暴击！对 ${enemy.name} 造成了 ${totalDamage} 点伤害！`, false);
+              } else {
+                  this.addBattleLog(`对 ${enemy.name} 造成了 ${totalDamage} 点伤害！`, false);
+              }
+          }
+      }
+      
+      this.addBattleLog(`消耗了 ${skill.mpCost} 点灵力。`, false);
+      
+      // 更新血条
+      Game.UI.updateBattleHpBar(battle);
+      
+      // 检查敌人是否死亡
+      if (enemy.hp <= 0) {
+          setTimeout(() => {
+              this.showBattleResult(true);
+          }, 1000);
+          return;
+      }
+      
+      // 延迟后执行灵宠助战，然后进入敌人回合
+      setTimeout(() => {
+          this.executePetAttack();
+          setTimeout(() => {
+              this.startEnemyTurn();
+          }, 1000);
+      }, 1000);
   },
 
   // 玩家防御

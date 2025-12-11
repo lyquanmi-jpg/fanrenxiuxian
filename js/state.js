@@ -55,14 +55,45 @@ Game.State = {
   // 一次性护身符标记（是否装备了一次性护身符）
   hasOneTimeProtection: false,
 
-  // 战斗临时状态（debuff等）
+  // 战斗临时状态（debuff/buff等）
   battleBuffs: {
       hitRateReduction: 0,  // 命中率降低（0-1，例如0.2表示降低20%）
-      hitRateReductionTurns: 0  // 命中率降低剩余回合数
+      hitRateReductionTurns: 0,  // 命中率降低剩余回合数
+      defenseBonus: 0,  // 防御加成（0-1，例如0.5表示提升50%）
+      defenseBonusTurns: 0  // 防御加成剩余回合数
   },
 
   // NPC 关系数据
   relationships: {},
+
+  // 游戏标志位（用于解锁机制、剧情分支等）
+  flags: {},
+
+  // 神兽/灵宠数据
+  pet: {
+      active: false,  // 是否激活
+      id: null,  // 神兽ID
+      level: 1,  // 等级
+      exp: 0,  // 经验值
+      name: "",  // 当前名字（可能被玩家改名）
+      affinity: 0  // 好感度
+  },
+
+  // 初始化 relationships（确保单一数据源）
+  initRelationships: function() {
+      if (!this.relationships) {
+          this.relationships = {};
+      }
+      return this.relationships;
+  },
+
+  // 初始化 flags（确保单一数据源）
+  initFlags: function() {
+      if (!this.flags) {
+          this.flags = {};
+      }
+      return this.flags;
+  },
 
   // 添加物品到背包
   addItem: function(itemId, count) {
@@ -142,16 +173,32 @@ Game.State = {
   // 检查境界突破（经验值满后设置瓶颈，不自动突破）
   checkRealmBreakthrough: function() {
       const currentRealm = Game.CoreConfig.realms.find(r => r.id === this.player.realm);
+      if (!currentRealm) return;
+      
       const currentRealmIndex = Game.CoreConfig.realms.indexOf(currentRealm);
       
+      // 检查是否有下一境界
       if (currentRealmIndex < Game.CoreConfig.realms.length - 1) {
           const nextRealm = Game.CoreConfig.realms[currentRealmIndex + 1];
-          if (this.player.level >= nextRealm.expRequired / 100) {  // 简化判断
-              // 经验值满了，设置瓶颈标志，不自动突破
+          const maxLevel = currentRealm.maxLevel || 10; // 默认10级，如果配置中没有maxLevel
+          
+          // 判定条件：达到当前境界最大等级，且经验值已满（或溢出）
+          // 检查当前等级是否达到最大等级
+          const reachedMaxLevel = this.player.level >= maxLevel;
+          
+          // 检查经验值是否已满（计算下一级所需经验）
+          const expForNextLevel = Game.CoreConfig.expCurve(this.player.level + 1);
+          const expFull = this.player.exp >= expForNextLevel;
+          
+          if (reachedMaxLevel && expFull) {
+              // 达到瓶颈，设置瓶颈标志，不自动突破
               if (!this.player.isBottleneck) {
                   this.player.isBottleneck = true;
-                  console.log(`你感觉境界已到瓶颈，需要主动突破才能进入 ${nextRealm.name}。`);
+                  console.log(`你感觉境界已到瓶颈（${currentRealm.name} ${maxLevel}层圆满），需要主动突破才能进入 ${nextRealm.name}。`);
               }
+          } else if (this.player.isBottleneck && (!reachedMaxLevel || !expFull)) {
+              // 如果之前设置了瓶颈，但条件不满足，清除瓶颈标志
+              this.player.isBottleneck = false;
           }
       }
   },
@@ -159,41 +206,97 @@ Game.State = {
   // 尝试突破境界（只有在遇到瓶颈时才能调用）
   attemptBreakthrough: function() {
       if (!this.player.isBottleneck) {
-          return { success: false, message: "你尚未遇到瓶颈，无法突破境界。" };
+          return { success: false, reason: "no_bottleneck", message: "你尚未遇到瓶颈，无法突破境界。" };
       }
 
       const currentRealm = Game.CoreConfig.realms.find(r => r.id === this.player.realm);
-      const currentRealmIndex = Game.CoreConfig.realms.indexOf(currentRealm);
-      
-      if (currentRealmIndex >= Game.CoreConfig.realms.length - 1) {
-          return { success: false, message: "你已经达到最高境界，无法继续突破。" };
+      if (!currentRealm) {
+          return { success: false, reason: "invalid_realm", message: "当前境界配置错误。" };
       }
 
-      const nextRealm = Game.CoreConfig.realms[currentRealmIndex + 1];
-      
-      // 执行突破逻辑
-      this.player.realm = nextRealm.id;
-      console.log(`境界突破！当前境界：${nextRealm.name}`);
-      
-      // 突破时大幅提升属性
-      this.player.maxHp += 50;
-      this.player.hp = this.player.maxHp;
-      this.player.maxMp += 30;
-      this.player.mp = this.player.maxMp;
-      this.player.attack += 10;
-      this.player.defense += 5;
-      
-      // 清除瓶颈标志
-      this.player.isBottleneck = false;
-      
-      // 清空溢出的经验
-      this.player.exp = 0;
+      // 检查是否有突破配置
+      if (!currentRealm.breakthrough) {
+          return { success: false, reason: "max_realm", message: "你已经达到最高境界，无法继续突破。" };
+      }
 
-      return { 
-          success: true, 
-          message: `恭喜！你成功突破到 ${nextRealm.name}！`,
-          newRealm: nextRealm.name
-      };
+      const breakthrough = currentRealm.breakthrough;
+      const nextRealm = Game.CoreConfig.realms.find(r => r.id === breakthrough.nextRealm);
+      
+      if (!nextRealm) {
+          return { success: false, reason: "invalid_next_realm", message: "下一境界配置错误。" };
+      }
+
+      // 检查是否需要道具
+      if (breakthrough.reqItem) {
+          const itemCount = this.getItemCount(breakthrough.reqItem);
+          if (itemCount < 1) {
+              const item = Game.Items.byId[breakthrough.reqItem];
+              const itemName = item ? item.name : breakthrough.reqItem;
+              return { 
+                  success: false, 
+                  reason: "missing_item", 
+                  itemName: itemName,
+                  message: `突破需要 ${itemName} x1，但你的背包中没有该物品。` 
+              };
+          }
+      }
+
+      // 消耗道具
+      if (breakthrough.reqItem) {
+          if (!this.removeItem(breakthrough.reqItem, 1)) {
+              return { success: false, reason: "item_consume_failed", message: "消耗道具失败。" };
+          }
+          console.log(`消耗了 ${Game.Items.byId[breakthrough.reqItem]?.name || breakthrough.reqItem} x1`);
+      }
+
+      // 概率判定
+      const success = Math.random() < breakthrough.baseChance;
+
+      if (success) {
+          // 突破成功
+          this.player.realm = nextRealm.id;
+          console.log(`境界突破成功！当前境界：${nextRealm.name}`);
+          
+          // 突破时大幅提升属性（根据境界不同，提升幅度不同）
+          const realmIndex = Game.CoreConfig.realms.indexOf(nextRealm);
+          const hpBonus = 50 + realmIndex * 20;  // 境界越高，提升越多
+          const mpBonus = 30 + realmIndex * 15;
+          const attackBonus = 10 + realmIndex * 5;
+          const defenseBonus = 5 + realmIndex * 3;
+          
+          this.player.maxHp += hpBonus;
+          this.player.hp = this.player.maxHp;  // 回满气血
+          this.player.maxMp += mpBonus;
+          this.player.mp = this.player.maxMp;  // 回满灵力
+          this.player.attack += attackBonus;
+          this.player.defense += defenseBonus;
+          
+          // 清除瓶颈标志
+          this.player.isBottleneck = false;
+          
+          // 清空溢出的经验
+          this.player.exp = 0;
+
+          return { 
+              success: true, 
+              message: `恭喜！你成功突破到 ${nextRealm.name}！\n\n气血上限 +${hpBonus}，灵力上限 +${mpBonus}，攻击 +${attackBonus}，防御 +${defenseBonus}。`,
+              newRealm: nextRealm.name
+          };
+      } else {
+          // 突破失败
+          const damageRate = breakthrough.failDamageRate || 0.5;
+          const damage = Math.floor(this.player.hp * damageRate);
+          this.player.hp = Math.max(1, this.player.hp - damage);  // 至少保留1点气血
+          
+          console.log(`境界突破失败！受到反噬，损失 ${damage} 点气血。`);
+
+          return { 
+              success: false, 
+              reason: "breakthrough_failed",
+              message: `突破失败！你受到反噬，损失了 ${damage} 点气血。\n\n不要灰心，继续修炼，下次一定能成功！`,
+              damage: damage
+          };
+      }
   },
 
   // 装备物品（使用 slot 参数）
@@ -280,16 +383,28 @@ Game.State = {
 
   // 获取当前有效属性（包含装备加成）
   getEffectiveStats: function() {
-      return {
+      const base = {
           hp: this.player.hp,
           maxHp: this.player.maxHp,
           mp: this.player.mp,
           maxMp: this.player.maxMp,
           attack: this.player.attack,
           defense: this.player.defense,
-          critRate: this.player.critRate,
-          critDamage: this.player.critDamage
+          critRate: this.player.critRate || 0,
+          critDamage: this.player.critDamage || 1.5
       };
+
+      // 应用灵兽好感度加成（暴击率）
+      if (this.pet && this.pet.active && this.pet.id) {
+          const bonuses = Game.Pets.getAffinityBonuses(this.pet.id);
+          bonuses.forEach(bonus => {
+              if (bonus.effect.critRate) {
+                  base.critRate += bonus.effect.critRate;
+              }
+          });
+      }
+
+      return base;
   },
 
   // 获取总属性（基础属性 + 装备加成 + 套装效果）
@@ -321,6 +436,11 @@ Game.State = {
           }
       }
 
+      // 应用战斗Buff（防御加成）
+      if (this.battleBuffs && this.battleBuffs.defenseBonus > 0) {
+          base.defense = Math.floor(base.defense * (1 + this.battleBuffs.defenseBonus));
+      }
+
       // 计算套装效果
       const setEffects = this.getSetEffects();
       if (setEffects.maxHp) base.maxHp += setEffects.maxHp;
@@ -334,6 +454,16 @@ Game.State = {
       if (setEffects.hpRegen) base.hpRegen = setEffects.hpRegen;
       if (setEffects.skillDamageBoost) base.skillDamageBoost = setEffects.skillDamageBoost;
       if (setEffects.comboChance) base.comboChance = setEffects.comboChance;
+
+      // 应用灵兽好感度加成
+      if (this.pet && this.pet.active && this.pet.id) {
+          const bonuses = Game.Pets.getAffinityBonuses(this.pet.id);
+          bonuses.forEach(bonus => {
+              if (bonus.effect.critRate) {
+                  base.critRate += bonus.effect.critRate;
+              }
+          });
+      }
 
       return base;
   },
@@ -626,6 +756,12 @@ Game.State = {
       const item = Game.Items.byId[itemId];
       if (!item) {
           console.error(`物品 ${itemId} 不存在`);
+          return false;
+      }
+
+      // 素材物品不可出售
+      if (item.type === "material") {
+          console.error(`素材物品 ${itemId} 不可出售`);
           return false;
       }
 

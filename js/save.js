@@ -31,7 +31,11 @@ Game.Save = {
                   // 一次性护身符标记
                   hasOneTimeProtection: Game.State.hasOneTimeProtection,
                   // NPC 关系数据
-                  relationships: JSON.parse(JSON.stringify(Game.State.relationships || {}))
+                  relationships: JSON.parse(JSON.stringify(Game.State.relationships || {})),
+                  // 游戏标志位（解锁机制等）
+                  flags: JSON.parse(JSON.stringify(Game.State.flags || {})),
+                  // 神兽/灵宠数据
+                  pet: JSON.parse(JSON.stringify(Game.State.pet || { active: false, id: null, level: 1, exp: 0, name: "", affinity: 0 }))
               }
           };
 
@@ -112,6 +116,30 @@ Game.Save = {
               } else {
                   // 兼容旧存档：如果没有 relationships，初始化为空对象
                   Game.State.relationships = {};
+              }
+              
+              // 恢复游戏标志位
+              if (saveData.state.flags) {
+                  Game.State.flags = saveData.state.flags;
+              } else {
+                  // 兼容旧存档：如果没有 flags，初始化为空对象
+                  Game.State.flags = {};
+              }
+              
+              // 【关键】兼容性补丁：检查灵宠数据
+              if (saveData.state.pet) {
+                  Game.State.pet = saveData.state.pet;
+              } else {
+                  console.warn("检测到旧存档，初始化灵宠系统...");
+                  // 必须与 state.js 中的默认值保持一致
+                  Game.State.pet = { 
+                      active: false, 
+                      id: null, 
+                      level: 1, 
+                      exp: 0, 
+                      name: "",
+                      affinity: 0
+                  };
               }
           }
 
