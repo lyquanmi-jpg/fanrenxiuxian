@@ -849,16 +849,22 @@ body {
     justify-content: center;
     align-items: center;
     z-index: 1000;
+    padding: 20px;
+    box-sizing: border-box;
 }
 
 .battle-container {
+    position: relative;
     background: #1a1a1a;
     border: 2px solid #4a9eff;
     border-radius: 8px;
-    padding: 20px;
     max-width: 600px;
-    width: 90%;
-    max-height: 80vh;
+    width: 100%;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
 }
 
 .battle-action-panel {
@@ -893,13 +899,91 @@ body {
     cursor: not-allowed;
 }
 
+/* 战斗弹窗头部（固定） */
+.battle-header {
+    flex-shrink: 0;
+    padding: 16px 20px;
+    border-bottom: 1px solid #333;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #1a1a1a;
+}
+
+.battle-header h2 {
+    margin: 0;
+    color: #4a9eff;
+    font-size: 18px;
+}
+
+.battle-skip-btn {
+    padding: 6px 12px;
+    font-size: 12px;
+    background-color: #3a3a3a;
+    border: 1px solid #5a5a5a;
+    color: #e0e0e0;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.battle-skip-btn:active {
+    background-color: #2a2a2a;
+    transform: scale(0.97);
+}
+
+/* 战斗内容区域（可滚动） */
+.battle-content {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 20px;
+    -webkit-overflow-scrolling: touch;
+    min-height: 0;
+}
+
+/* 战斗结算按钮容器（固定在底部） */
+#battle-result-btn-container {
+    flex-shrink: 0;
+    padding: 16px 20px;
+    border-top: 1px solid #333;
+    background: #1a1a1a;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
 .battle-loot-panel {
     background: linear-gradient(135deg, rgba(74, 158, 255, 0.1), rgba(45, 90, 160, 0.1));
     border: 2px solid #4a9eff;
     border-radius: 8px;
-    padding: 20px;
-    margin-bottom: 15px;
+    padding: 16px;
+    margin-bottom: 12px;
     text-align: center;
+    max-height: 200px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.battle-result-btn {
+    width: 100%;
+    padding: 14px 20px;
+    min-height: 44px;
+    font-size: 16px;
+    font-weight: bold;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    background: linear-gradient(135deg, #4a9eff, #2d5aa0);
+    color: #fff;
+    transition: all 0.15s ease;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+}
+
+.battle-result-btn:active {
+    background: linear-gradient(135deg, #3a8eef, #1d4a90);
+    transform: scale(0.98);
 }
 
 /* ==========================
@@ -993,12 +1077,15 @@ body {
     background: #0a0a0a;
     border: 1px solid #333;
     padding: 15px;
-    height: 300px;
+    max-height: 300px;
+    min-height: 150px;
     overflow-y: auto;
     margin: 15px 0;
     font-family: monospace;
     font-size: 14px;
     line-height: 1.6;
+    -webkit-overflow-scrolling: touch;
+    border-radius: 4px;
 }
 
 .battle-log-line {
@@ -1026,4 +1113,106 @@ body {
 
 .player-hp-bar {
     background: #4a9eff;
+}
+
+/* ==========================
+   通用弹窗样式（Flexbox + 内部滚动）
+   ========================== */
+.modal-container {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 90%;
+    max-width: 400px;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    background: #1e1e1e;
+    border: 1px solid #444;
+    z-index: 2000;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    overflow: hidden;
+}
+
+/* NPC 详情弹窗容器 */
+#npc-detail-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 2000;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+/* NPC 弹窗容器 */
+.npc-modal-container {
+    position: relative;
+    background: #1a1a1a;
+    border: 2px solid #4a9eff;
+    border-radius: 8px;
+    max-width: 500px;
+    width: 100%;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+}
+
+/* NPC 弹窗内容区域（可滚动） */
+.npc-modal-content {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 20px;
+    -webkit-overflow-scrolling: touch;
+    min-height: 0;
+}
+
+/* NPC 弹窗按钮区域（固定在底部） */
+.npc-modal-buttons {
+    flex-shrink: 0;
+    padding: 16px 20px;
+    border-top: 1px solid #333;
+    background: #1a1a1a;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* 手机端优化：确保弹窗不会被浏览器工具栏遮挡 */
+@media (max-height: 600px) {
+    .modal-container,
+    .npc-modal-container,
+    .battle-container {
+        max-height: 90vh;
+    }
+}
+
+/* 确保按钮在手机端可点击 */
+@media (max-width: 768px) {
+    .battle-result-btn,
+    .npc-modal-buttons button,
+    .npc-modal-buttons .ui-button {
+        min-height: 48px;
+        font-size: 16px;
+    }
+    
+    .battle-content,
+    .npc-modal-content {
+        padding: 16px;
+    }
+    
+    .battle-header,
+    .npc-modal-buttons {
+        padding: 12px 16px;
+    }
 }
