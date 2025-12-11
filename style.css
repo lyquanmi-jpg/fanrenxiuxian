@@ -763,9 +763,13 @@ body {
     font-style: italic;
 }
 
-/* 商店样式 */
+/* 商店样式 - 修复滚动问题 */
 .shop-content {
     padding: 16px 20px;
+    flex: 1;                  /* 关键：填满剩余高度 */
+    overflow-y: auto;         /* 关键：允许垂直滚动 */
+    -webkit-overflow-scrolling: touch; /* 手机端丝滑滚动 */
+    min-height: 0;            /* 防止 Flex 子项溢出问题 */
 }
 
 .shop-gold {
@@ -867,19 +871,28 @@ body {
     box-shadow: 0 4px 20px rgba(0,0,0,0.5);
 }
 
+/* 战斗操作面板 - 防爆优化 */
+#battle-action-panel,
 .battle-action-panel {
     display: flex;
-    gap: 10px;
-    margin-top: 15px;
+    gap: 8px;
     flex-wrap: wrap;
     justify-content: center;
+    /* --- 关键防爆代码 --- */
+    max-height: 160px; /* 限制最大高度，约等于3行按钮 */
+    overflow-y: auto;  /* 内容过多时允许内部滚动 */
+    -webkit-overflow-scrolling: touch; /* 手机顺滑滚动 */
+    padding: 5px;
+    border-top: 1px solid #333;
+    margin-top: 10px;
 }
 
+/* 技能按钮样式优化 */
 .battle-action-btn {
-    flex: 1;
+    flex: 1 0 45%; /* 手机上一行显示2个 */
     min-width: 120px;
-    padding: 12px 20px;
-    font-size: 16px;
+    padding: 10px 5px; /* 减小内边距防止按钮太大 */
+    font-size: 14px;
     font-weight: bold;
     border: none;
     border-radius: 6px;
@@ -887,6 +900,27 @@ body {
     background: linear-gradient(135deg, #4a9eff, #2d5aa0);
     color: #fff;
     transition: all 0.3s ease;
+    white-space: nowrap; /* 防止文字换行撑开 */
+    text-overflow: ellipsis; /* 文字过长显示省略号 */
+    overflow: hidden;
+}
+
+/* 治疗技能按钮样式（绿色系） */
+.battle-action-btn.btn-heal {
+    background: linear-gradient(135deg, #4caf50, #2e7d32);
+}
+
+.battle-action-btn.btn-heal:hover:not(:disabled) {
+    background: linear-gradient(135deg, #66bb6a, #388e3c);
+}
+
+/* 防御Buff技能按钮样式（黄色系） */
+.battle-action-btn.btn-buff {
+    background: linear-gradient(135deg, #ff9800, #f57c00);
+}
+
+.battle-action-btn.btn-buff:hover:not(:disabled) {
+    background: linear-gradient(135deg, #ffb74d, #ff8f00);
 }
 
 .battle-action-btn:hover:not(:disabled) {
