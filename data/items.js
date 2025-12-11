@@ -45,11 +45,11 @@ Game.Items = {
       },
       "basic_pill_mp": {
           id: "basic_pill_mp",
-          name: "提神丹",
+          name: "祖传肾宝丸",
           type: "consumable",
-          description: "便利店常见提神用品，略微恢复灵力。",
+          description: "便利店老板推荐的祖传秘方，据说能快速恢复精力，让你重新焕发活力。",
           price: 30,
-          effect: { mp: 30 }
+          effect: { energy: 20 }
       },
       "instant_noodles": {
           id: "instant_noodles",
@@ -84,9 +84,58 @@ Game.Items = {
           skill: {
               id: "qi_blast",
               name: "灵力弹",
+              type: "damage",
               mpCost: 15,
               damageMultiplier: 1.5,
               description: "消耗15点灵力，造成1.5倍攻击力的伤害"
+          }
+      },
+      "spell_book_sword_array": {
+          id: "spell_book_sword_array",
+          name: "《青元剑诀》",
+          type: "skill_book",
+          description: "记载着青元剑诀的秘籍，可召唤剑阵进行多段攻击。",
+          price: 0,
+          skill: {
+              id: "skill_sword_array",
+              name: "青元剑诀",
+              type: "damage",
+              mpCost: 40,
+              hitCount: 3,
+              damageMultiplier: 0.6,
+              description: "消耗40点灵力，召唤剑阵对敌人造成3次攻击，每次造成60%攻击力的伤害"
+          }
+      },
+      "spell_book_iron_body": {
+          id: "spell_book_iron_body",
+          name: "《金刚护体》",
+          type: "skill_book",
+          description: "记载着金刚护体功法的秘籍，可大幅提升防御力。",
+          price: 0,
+          skill: {
+              id: "skill_iron_body",
+              name: "金刚护体",
+              type: "buff",
+              mpCost: 30,
+              buffType: "defense",
+              buffValue: 0.5,
+              buffDuration: 3,
+              description: "消耗30点灵力，自身防御力提升50%，持续3回合"
+          }
+      },
+      "spell_book_rejuvenation": {
+          id: "spell_book_rejuvenation",
+          name: "《回春术》",
+          type: "skill_book",
+          description: "记载着回春术的秘籍，可快速恢复气血。",
+          price: 0,
+          skill: {
+              id: "skill_rejuvenation",
+              name: "回春术",
+              type: "heal",
+              mpCost: 50,
+              healPercent: 0.3,
+              description: "消耗50点灵力，立即恢复30%最大气血"
           }
       },
       "red_potion": {
@@ -541,6 +590,162 @@ Game.Items = {
           quality: "legendary",
           stats: { critDamage: 0.5 },
           setId: "set_cyber_night"
+      },
+
+      // ==========================
+      // 素材类物品（用于炼丹/炼器）
+      // ==========================
+      "iron_essence": {
+          id: "iron_essence",
+          name: "铁精",
+          type: "material",
+          description: "从普通铁矿中提炼出的精华，是炼制法器的常用材料。",
+          price: 0  // 素材不可直接购买，只能通过战斗掉落
+      },
+      "spirit_herb": {
+          id: "spirit_herb",
+          name: "灵草",
+          type: "material",
+          description: "蕴含微弱灵气的草药，是炼制丹药的基础材料。",
+          price: 0
+      },
+      "monster_core": {
+          id: "monster_core",
+          name: "妖丹",
+          type: "material",
+          description: "从心魔或妖兽体内获得的能量核心，蕴含强大的灵力。",
+          price: 0
+      },
+      "spirit_wood": {
+          id: "spirit_wood",
+          name: "灵木",
+          type: "material",
+          description: "生长在灵气浓郁之地的木材，可用于制作符箓或法器。",
+          price: 0
+      },
+      "crystal_fragment": {
+          id: "crystal_fragment",
+          name: "水晶碎片",
+          type: "material",
+          description: "破碎的灵石碎片，虽然灵力微弱但仍可用于炼器。",
+          price: 0
+      },
+
+      // ==========================
+      // 灵石商店专用商品（仅能用灵石购买）
+      // ==========================
+      "qi_gathering_pill": {
+          id: "qi_gathering_pill",
+          name: "聚气丹",
+          type: "consumable",
+          description: "修仙者常用的基础丹药，服用后可快速恢复大量灵力。",
+          price: 5,  // 5灵石
+          currency: "spiritStones",  // 使用灵石购买
+          effect: { mp: 80 }
+      },
+      "beginner_sword": {
+          id: "beginner_sword",
+          name: "初级法剑",
+          type: "equipment",
+          slot: "weapon",
+          description: "修仙者入门使用的法剑，虽然简陋但比凡间兵器强得多。",
+          price: 15,  // 15灵石
+          currency: "spiritStones",
+          quality: "good",  // 绿色品质（比凡人武器强）
+          stats: { attack: 12, maxMp: 10 }
+      },
+      "formation_material": {
+          id: "formation_material",
+          name: "阵法材料",
+          type: "material",
+          description: "用于布置阵法的特殊材料，蕴含稳定的灵力结构。",
+          price: 8,  // 8灵石
+          currency: "spiritStones"
+      },
+      "spirit_restoration_pill": {
+          id: "spirit_restoration_pill",
+          name: "回灵丹",
+          type: "consumable",
+          description: "比聚气丹更高级的丹药，可恢复大量灵力并略微提升灵力上限。",
+          price: 12,  // 12灵石
+          currency: "spiritStones",
+          effect: { mp: 120, maxMp: 5 }
+      },
+
+      // ==========================
+      // 制造系统产出物品
+      // ==========================
+      "small_healing_pill": {
+          id: "small_healing_pill",
+          name: "小还丹",
+          type: "consumable",
+          description: "基础的疗伤丹药，能快速恢复气血。",
+          price: 0,  // 只能通过制造获得
+          effect: { hp: 100 }
+      },
+      "energy_restoration_pill": {
+          id: "energy_restoration_pill",
+          name: "回神丹",
+          type: "consumable",
+          description: "恢复精力的丹药，让你重新焕发活力。",
+          price: 0,  // 只能通过制造获得
+          effect: { energy: 40 }
+      },
+      "refined_iron_sword": {
+          id: "refined_iron_sword",
+          name: "精铁剑",
+          type: "equipment",
+          slot: "weapon",
+          description: "用精铁锻造的法剑，比初级法剑更锋利。",
+          price: 0,  // 只能通过制造获得
+          quality: "good",  // 绿色品质
+          stats: { attack: 18, defense: 2 }
+      },
+      "spirit_armor": {
+          id: "spirit_armor",
+          name: "灵甲",
+          type: "equipment",
+          slot: "armor",
+          description: "用灵木和妖丹制作的护甲，提供不错的防御。",
+          price: 0,  // 只能通过制造获得
+          quality: "good",  // 绿色品质
+          stats: { defense: 12, maxHp: 30 }
+      },
+
+      // ==========================
+      // 境界突破丹药
+      // ==========================
+      "foundation_pill": {
+          id: "foundation_pill",
+          name: "筑基丹",
+          type: "consumable",
+          description: "突破炼气桎梏的逆天丹药，蕴含磅礴的天地灵气，是踏入筑基期的关键。",
+          price: 0,  // 只能通过制造获得
+          effect: {}  // 突破丹药不直接恢复属性，用于突破
+      },
+      "golden_core_pill": {
+          id: "golden_core_pill",
+          name: "金丹",
+          type: "consumable",
+          description: "凝聚天地精华的至宝，是突破筑基期、凝结金丹的必备之物。",
+          price: 0,
+          effect: {}
+      },
+      "nascent_soul_pill": {
+          id: "nascent_soul_pill",
+          name: "元婴丹",
+          type: "consumable",
+          description: "孕育元婴的绝世丹药，蕴含生命本源之力，是突破金丹期的无上至宝。",
+          price: 0,
+          effect: {}
+      },
+      "deity_pill": {
+          id: "deity_pill",
+          name: "化神丹",
+          type: "consumable",
+          description: "逆天改命的终极丹药，传说中能助修仙者突破元婴桎梏，踏入化神之境。",
+          price: 0,
+          effect: {}
       }
   },
 

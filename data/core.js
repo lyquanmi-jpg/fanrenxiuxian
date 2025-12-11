@@ -7,12 +7,77 @@ window.Game = window.Game || {};
 Game.CoreConfig = {
     // 修仙境界列表（从低到高）
     realms: [
-        { id: "mortal", name: "凡人境", expRequired: 0 },
-        { id: "qi_refining", name: "炼气期", expRequired: 100 },
-        { id: "foundation", name: "筑基期", expRequired: 500 },
-        { id: "golden_core", name: "金丹期", expRequired: 2000 },
-        { id: "nascent_soul", name: "元婴期", expRequired: 8000 },
-        { id: "deity", name: "化神期", expRequired: 30000 }
+        { 
+            id: "mortal", 
+            name: "凡人境", 
+            expRequired: 0,
+            maxLevel: 5,  // 凡人境最高5级
+            // 凡人 -> 炼气：容易，无需特殊道具
+            breakthrough: { 
+                nextRealm: "qi_refining", 
+                baseChance: 1.0  // 100% 成功率
+            } 
+        },
+        { 
+            id: "qi_refining", 
+            name: "炼气期", 
+            expRequired: 100,
+            maxLevel: 10,  // 炼气期最高10级（十层圆满）
+            // 炼气 -> 筑基：困难，必须筑基丹
+            breakthrough: { 
+                nextRealm: "foundation", 
+                reqItem: "foundation_pill",  // 关联物品ID
+                baseChance: 0.6,             // 60% 基础成功率
+                failDamageRate: 0.5          // 失败扣除 50% 当前气血
+            } 
+        },
+        { 
+            id: "foundation", 
+            name: "筑基期", 
+            expRequired: 500,
+            maxLevel: 20,  // 筑基期最高20级
+            // 筑基 -> 金丹：非常困难，需要金丹
+            breakthrough: { 
+                nextRealm: "golden_core", 
+                reqItem: "golden_core_pill", 
+                baseChance: 0.4,            // 40% 基础成功率
+                failDamageRate: 0.6         // 失败扣除 60% 当前气血
+            } 
+        },
+        { 
+            id: "golden_core", 
+            name: "金丹期", 
+            expRequired: 2000,
+            maxLevel: 30,  // 金丹期最高30级
+            // 金丹 -> 元婴：极其困难，需要元婴丹
+            breakthrough: { 
+                nextRealm: "nascent_soul", 
+                reqItem: "nascent_soul_pill", 
+                baseChance: 0.3,            // 30% 基础成功率
+                failDamageRate: 0.7         // 失败扣除 70% 当前气血
+            } 
+        },
+        { 
+            id: "nascent_soul", 
+            name: "元婴期", 
+            expRequired: 8000,
+            maxLevel: 40,  // 元婴期最高40级
+            // 元婴 -> 化神：逆天难度，需要化神丹
+            breakthrough: { 
+                nextRealm: "deity", 
+                reqItem: "deity_pill", 
+                baseChance: 0.2,            // 20% 基础成功率
+                failDamageRate: 0.8         // 失败扣除 80% 当前气血
+            } 
+        },
+        { 
+            id: "deity", 
+            name: "化神期", 
+            expRequired: 30000,
+            maxLevel: 50,  // 化神期最高50级
+            // 最高境界，无法继续突破
+            breakthrough: null
+        }
     ],
 
     // 属性类型

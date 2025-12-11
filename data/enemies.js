@@ -19,7 +19,10 @@ Game.Enemies = {
           spiritStones: 1,  // 掉落1枚灵石（必掉）
           // 掉落列表：{ itemId: 掉落概率(0-1) }
           drops: {
-              "shadow_cloak": 0.15  // 阴影斗篷，15%概率
+              "shadow_cloak": 0.15,  // 阴影斗篷，15%概率
+              "iron_essence": 0.50,  // 铁精，50%概率
+              "spirit_herb": 0.40,   // 灵草，40%概率
+              "monster_core": 0.10   // 妖丹，10%概率
           }
       },
       "overtime_anxiety": {
@@ -35,7 +38,10 @@ Game.Enemies = {
           gold: 25,
           spiritStones: 1,  // 掉落1枚灵石（必掉）
           drops: {
-              "anxiety_bracelet": 0.12  // 焦虑手环，12%概率
+              "anxiety_bracelet": 0.12,  // 焦虑手环，12%概率
+              "iron_essence": 0.45,      // 铁精，45%概率
+              "spirit_herb": 0.35,       // 灵草，35%概率
+              "monster_core": 0.08       // 妖丹，8%概率
           }
       },
       "client_monster": {
@@ -51,7 +57,9 @@ Game.Enemies = {
           gold: 40,
           spiritStones: 2,  // 掉落2枚灵石（必掉）
           drops: {
-              "client_contract_shield": 0.20  // 甲方合同盾，20%概率
+              "client_contract_shield": 0.20,  // 甲方合同盾，20%概率
+              "iron_essence": 0.15,  // 铁精，15%概率
+              "spirit_herb": 0.10    // 灵草，10%概率
           }
       },
 
@@ -104,7 +112,11 @@ Game.Enemies = {
           // BOSS掉落：更高概率，更好装备
           drops: {
               "night_party_mask": 0.35,  // 夜宴面具，35%概率
-              "heart_demon_core": 0.25   // 心魔核心，25%概率
+              "heart_demon_core": 0.25,  // 心魔核心，25%概率
+              "monster_core": 0.30,      // 妖丹，30%概率（BOSS必掉素材）
+              "spirit_wood": 0.20,       // 灵木，20%概率
+              "crystal_fragment": 0.25,  // 水晶碎片，25%概率
+              "spell_book_sword_array": 0.15  // 《青元剑诀》，15%概率
           }
       },
 
@@ -120,7 +132,12 @@ Game.Enemies = {
           defense: 15,
           exp: 200,
           gold: 100,
-          spiritStones: 8  // 掉落8枚灵石
+          spiritStones: 8,  // 掉落8枚灵石
+          drops: {
+              "monster_core": 0.40,      // 妖丹，40%概率
+              "spirit_herb": 0.30,      // 灵草，30%概率
+              "crystal_fragment": 0.25  // 水晶碎片，25%概率
+          }
       },
       "chunxia_demon": {
           id: "chunxia_demon",
@@ -133,7 +150,13 @@ Game.Enemies = {
           defense: 18,
           exp: 250,
           gold: 120,
-          spiritStones: 10  // 掉落10枚灵石
+          spiritStones: 10,  // 掉落10枚灵石
+          drops: {
+              "monster_core": 0.45,      // 妖丹，45%概率
+              "spirit_wood": 0.35,      // 灵木，35%概率
+              "iron_essence": 0.30,     // 铁精，30%概率
+              "crystal_fragment": 0.30  // 水晶碎片，30%概率
+          }
       },
 
       // 最终 BOSS
@@ -148,7 +171,14 @@ Game.Enemies = {
           defense: 30,
           exp: 1000,
           gold: 500,
-          spiritStones: 50  // 最终BOSS掉落50枚灵石
+          spiritStones: 50,  // 最终BOSS掉落50枚灵石
+          drops: {
+              "monster_core": 1.0,       // 妖丹，100%概率（必掉）
+              "spirit_wood": 0.60,       // 灵木，60%概率
+              "iron_essence": 0.50,      // 铁精，50%概率
+              "spirit_herb": 0.50,       // 灵草，50%概率
+              "crystal_fragment": 0.40   // 水晶碎片，40%概率
+          }
       }
   }
 };

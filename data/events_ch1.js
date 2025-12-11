@@ -13,7 +13,9 @@ Game.Events_ch1 = [
         "南昌站的自动门缓缓合上，阴冷的雨气从门缝里灌进来。\n\n" +
         "你拖着行李箱走出车站，大雨把站前广场的霓虹灯拧成一片晕开的色块。\n\n" +
         "手机震了一下，是一个备注为【红姐】的微信弹出：\n" +
-        "「到了没？今晚有局，我带你认认南昌这帮奇怪的人。」",
+        "「到了没？今晚有局，我带你认认南昌这帮奇怪的人。」\n\n" +
+        "你深吸一口气，忽然觉得空气中有什么东西在流动——" +
+        "不是风，更像是某种看不见的能量，在雨幕中若隐若现。",
       options: [
         {
           text: "先按导航去出租屋，安顿一下再说",
@@ -80,7 +82,9 @@ Game.Events_ch1 = [
         "出租屋在一条有点旧的小巷尽头。\n\n" +
         "实景比照片暗了一整度，房间的墙角略微发潮，窗外是偶尔驶过的车灯。\n\n" +
         "你把行李箱放到墙边，整个人坐到床上，弹簧发出一点没睡醒的吱呀声。\n\n" +
-        "安静下来之后，你突然觉得胸口有点发热，像是熬夜太多留下的心悸，又像是……什么在轻轻敲门。",
+        "安静下来之后，你突然觉得胸口有点发热，像是熬夜太多留下的心悸，又像是……什么在轻轻敲门。\n\n" +
+        "你望向窗外，雨还在下，但空气中那种异样的流动感似乎更明显了——" +
+        "这座城市里，有什么东西正在苏醒。",
       options: [
         {
           text: "闭上眼睛，认真感受一下这股异样的感觉",
@@ -233,17 +237,13 @@ Game.Events_ch1 = [
         "时间在你反复琢磨这股力量中慢慢过去。\n\n" +
         "窗外的雨声由密转疏，天色从灰白熬成深蓝，城市开始亮起一盏一盏灯。\n\n" +
         "手机再次震动，是红姐发来的新消息：\n" +
-        "「差不多了吧？晚上八点，老地方见。」",
+        "「差不多了吧？晚上八点，老地方见。」\n\n" +
+        "你摸了摸肚子，感觉有点饿，决定先去楼下便利店买点补给，顺便去赴约。",
       options: [
         {
-          text: "整理一下自己，准备去找红姐",
-          next: "ch1_party_1",
-          effects: { exp: 5, energy: -5 }
-        },
-        {
-          text: "先下楼去便利店补点东西",
+          text: "下楼去便利店 (剧情推进)",
           next: "ch1_convenience_store_visit",
-          effects: { energy: -5 }
+          effects: { energy: -2 }
         }
       ]
     },
@@ -251,16 +251,72 @@ Game.Events_ch1 = [
     // ===== 3. 楼下便利店 + 商店入口 =====
     {
       id: "ch1_convenience_store_visit",
-      type: "shop",
-      shopId: "ch1_convenience_store",
+      type: "story",
       speaker: "旁白",
       text:
         "你打着伞走到楼下的便利店。\n\n" +
         "昏黄的灯光把货架照得暖洋洋的，老板一边看着电视剧，一边抬头问你：\n" +
         "「刚搬来的吧？要点什么？」\n\n" +
-        "你扫了一眼货架，发现除了常见的止痛药和泡面，老板还悄悄从柜台下面拿出一枚包着黄符的灵石，意味深长地看了你一眼。\n\n" +
-        "「这个……一般人用不上，但你应该知道是什么。」\n\n" +
-        "这里可以买到一些简单的丹药和恢复用品，为接下来的夜晚做准备。",
+        "你扫了一眼货架，发现除了常见的止痛药和泡面，老板手里还拿着一枚包着黄符的石头，似乎在把玩着什么。\n\n" +
+        "那石头在灯光下泛着微弱的蓝光，你体内的那股异样感觉似乎被它吸引，微微颤动了一下。",
+      options: [
+        {
+          text: "盯着他手里的石头：老板，这东西怎么卖？",
+          next: "ch1_convenience_store_unlock",
+          effects: {}
+        },
+        {
+          text: "就要普通的泡面和水。",
+          next: "ch1_convenience_store_normal",
+          effects: {}
+        }
+      ]
+    },
+
+    // 解锁隐藏渠道的剧情
+    {
+      id: "ch1_convenience_store_unlock",
+      type: "story",
+      speaker: "老板",
+      text:
+        "老板愣了一下，然后露出一个意味深长的笑容。\n\n" +
+        "「嘿，行家啊。既然看出来了，以后有好东西我都给你留着，就在柜台下面。」\n\n" +
+        "他把那枚灵石放回柜台下，又从里面拿出几样东西：\n" +
+        "「聚气丹、法剑、阵法材料……这些一般人用不上，但你应该知道是什么。」\n\n" +
+        "你感觉老板的眼神里多了一丝认同，仿佛找到了同类。",
+      options: [
+        {
+          text: "点点头，开始选购",
+          next: "ch1_convenience_store_shop_unlocked",
+          effects: {
+            flag: "convenienceStoreUnlocked"
+          }
+        }
+      ]
+    },
+
+    // 普通购物（未解锁）
+    {
+      id: "ch1_convenience_store_normal",
+      type: "shop",
+      shopId: "ch1_convenience_store",
+      speaker: "旁白",
+      text:
+        "老板点点头，把石头收了起来。\n\n" +
+        "「好嘞，泡面和水，一共20块。」\n\n" +
+        "你付了钱，拎着塑料袋准备离开。",
+      next: "ch1_after_convenience"
+    },
+
+    // 解锁后的商店界面
+    {
+      id: "ch1_convenience_store_shop_unlocked",
+      type: "shop",
+      shopId: "ch1_convenience_store",
+      speaker: "旁白",
+      text:
+        "你开始浏览货架。除了常见的止痛药和泡面，柜台下面还摆着几样散发着微弱灵气的物品。\n\n" +
+        "老板在一旁看着，眼神里带着一丝期待。",
       next: "ch1_after_convenience"
     },
   
@@ -269,23 +325,18 @@ Game.Events_ch1 = [
       type: "story",
       speaker: "旁白",
       text:
-        "你拎着塑料袋回到巷口，雨小了很多，路边水坑里倒映出一片片灯光。\n\n" +
-        "你突然有点期待今晚会发生什么——不是公司群里的那种“临时开会”，而是……真正属于你的新剧情。",
+        "你拎着塑料袋走出便利店。\n\n" +
+        "刚走到街角，一个摆摊的老头突然叫住了你。",
       options: [
         {
-          text: "回出租屋整理一下，再去赴约",
-          next: "ch1_rental_to_evening",
-          effects: { hp: 5, energy: -5 }
-        },
-        {
-          text: "直接出发去找红姐",
-          next: "ch1_party_1",
-          effects: { exp: 5, energy: -5 }
+          text: "停下脚步看过去",
+          next: "ch1_event_fortune_teller",
+          effects: {}
         }
       ]
     },
   
-    // ===== 4. 街区探索 + 小怪战斗 =====
+    // ===== 4. 街区探索 + 强制触发算命老头 =====
     {
       id: "ch1_street_explore",
       type: "story",
@@ -295,17 +346,13 @@ Game.Events_ch1 = [
         "公交站牌下有人打着伞刷手机，电动车从你身边疾驰而过，" +
         "远处高楼的灯光像一整面发光的墙。\n\n" +
         "你忽然觉得，这座城市表面上很普通，但空气里混着一种说不清的躁动——" +
-        "那股在你体内游走的东西，似乎也在外面找着什么共鸣。",
+        "那股在你体内游走的东西，似乎也在外面找着什么共鸣。\n\n" +
+        "你往人少的街角走去，想找个安静的地方感受一下这股异样。",
       options: [
         {
-          text: "往人少的街角走走（可能有点危险）",
-          next: "ch1_street_random_hub",
+          text: "继续往前走",
+          next: "ch1_event_fortune_teller",
           effects: { energy: -5 }
-        },
-        {
-          text: "先记地图，等会儿从这边去找红姐",
-          next: "ch1_rental_to_evening",
-          effects: { exp: 5, energy: -2 }
         }
       ]
     },
@@ -317,10 +364,12 @@ Game.Events_ch1 = [
       text:
         "你走到附近一个废弃的工厂区。\n\n" +
         "这里已经很久没人来了，但空气中似乎还残留着某种能量波动。\n\n" +
-        "你感觉到这里是个不错的练级地点，可以反复挑战阴影来提升实力。",
+        "你深吸一口气，感觉这里的阴气很重，是滋养魔物的温床——" +
+        "但也正因如此，这里非常适合修仙者磨练技艺。\n\n" +
+        "击败这里的阴影，不仅能获得经验，还能获得灵石和炼器材料。",
       options: [
         {
-          text: "进入工厂深处，寻找阴影战斗",
+          text: "👊 开始刷怪 (获得经验/灵石/素材)",
           next: "ch1_training_battle",
           effects: { energy: -5 }
         },
@@ -330,8 +379,8 @@ Game.Events_ch1 = [
           effects: { energy: -5 }
         },
         {
-          text: "离开这里，去其他地方",
-          next: "ch1_street_explore",
+          text: "离开这里，返回街头",
+          next: "ch1_street_random_hub",
           effects: { energy: -5 }
         }
       ]
@@ -461,16 +510,25 @@ Game.Events_ch1 = [
       type: "story",
       speaker: "旁白",
       text:
-        "你沿着人少的路往前走，路灯把你的影子拉得很长。\n\n" +
-        "前面分成了三条小路：一条通向老旧居民楼，一条通向天桥，一条往河边走去。\n\n" +
-        "直觉告诉你，每条路的故事都不太一样。",
+        "你站在街角，看着这座城市在夜色中渐渐亮起灯火。\n\n" +
+        "空气中那种异样的流动感似乎更明显了，你感觉这里隐藏着许多秘密。\n\n" +
+        "现在你已经有了技能书和灵兽，是时候决定接下来要去哪里了。",
       options: [
-        { text: "去老旧居民楼后面的小巷看看", next: "ch1_event_unlucky_fall", effects: { energy: -5 } },
-        { text: "上天桥晃一圈，吹吹风", next: "ch1_event_lucky_money", effects: { energy: -5 } },
-        { text: "往河边走走，看看夜景", next: "ch1_event_riverside_hint", effects: { energy: -5 } },
-        { text: "注意到街边有个算命摊，过去看看", next: "ch1_event_fortune_teller", effects: { energy: -5 } },
-        { text: "去附近的废弃工厂练级", next: "ch1_training_area_hub", effects: { energy: -5 } },
-        { text: "在附近的小巷里探索", next: "ch1_explore_random", effects: { energy: -5 } }
+        {
+          text: "⚔️ [练级] 深入废弃工厂 (刷怪/素材)",
+          next: "ch1_training_area_hub",
+          effects: { energy: -5 }
+        },
+        {
+          text: "🍷 [主线] 去赴红姐的约",
+          next: "ch1_party_1",
+          effects: { energy: -5 }
+        },
+        {
+          text: "🎲 随便逛逛 (随机事件)",
+          next: "ch1_explore_random",
+          effects: { energy: -5 }
+        }
       ]
     },
     // ===== 随机探索事件（好运/霉运） =====
@@ -495,15 +553,22 @@ Game.Events_ch1 = [
       dynamicText: function() {
           // 随机选择好运或霉运事件
           const random = Math.random();
-          if (random < 0.5) {
-              // 好运事件（50%概率）
+          if (random < 0.4) {
+              // 好运事件（40%概率）
               const luckyEvents = [
                   "ch1_event_lucky_talisman_water",
                   "ch1_event_lucky_spirit_stone",
                   "ch1_event_lucky_old_man"
               ];
+              // 如果还没有灵兽，添加救猫事件
+              if (!Game.State.pet.active) {
+                  luckyEvents.push("ch1_event_save_cat");
+              }
               const selectedEvent = luckyEvents[Math.floor(Math.random() * luckyEvents.length)];
               return selectedEvent;
+          } else if (random < 0.5) {
+              // 打工事件（10%概率）
+              return "ch1_event_part_time_job";
           } else {
               // 霉运事件（50%概率）
               const unluckyEvents = [
@@ -661,6 +726,132 @@ Game.Events_ch1 = [
         }
       ]
     },
+    // 好运事件4：雨夜救猫（获得神兽）
+    {
+      id: "ch1_event_save_cat",
+      type: "story",
+      speaker: "旁白",
+      text:
+        "你循着声音找过去，在一个被雨水打湿的纸箱里，发现了一只白色的小猫。\n\n" +
+        "它看起来只有几个月大，浑身湿透，眼神里却透着一种说不出的威严。\n\n" +
+        "你蹲下身，小猫抬头看了你一眼，没有逃跑，反而轻轻叫了一声。\n\n" +
+        "「……算了，总不能见死不救。」",
+      options: [
+        {
+          text: "把小猫抱起来，带回出租屋",
+          next: "ch1_event_save_cat_result",
+          effects: { exp: 10 }
+        }
+      ]
+    },
+    {
+      id: "ch1_event_save_cat_result",
+      type: "story",
+      speaker: "旁白",
+      text:
+        "你把小白猫抱在怀里，它似乎很有灵性，蹭了蹭你的手臂。\n\n" +
+        "此时，你抬头看到了不远处的废弃工厂，那里散发着浓郁的阴气。",
+      options: [
+        {
+          text: "给它起名'小白'，并查看废弃工厂",
+          action: function() {
+              // 激活神兽
+              Game.State.pet = {
+                  active: true,
+                  id: "white_tiger_cub",
+                  level: 1,
+                  exp: 0,
+                  name: "小白",
+                  affinity: 0
+              };
+              if (Game.Save) Game.Save.save();
+              Game.UI.renderHomeCards();
+              
+              // 强制跳转练级引导
+              Game.Game.goToEvent("ch1_training_area_intro");
+          }
+        }
+      ]
+    },
+    // 练级点引导事件
+    {
+      id: "ch1_training_area_intro",
+      type: "story",
+      speaker: "旁白",
+      text:
+        "怀里抱着小白，手里揣着秘籍，你感觉更有底气了。\n\n" +
+        "你抬头看向不远处的废弃工厂，那里阴气弥漫，正是磨练刚刚学会的法术的好地方。",
+      options: [
+        {
+          text: "👊 明白了，去街头枢纽准备行动",
+          next: "ch1_street_random_hub",
+          effects: { exp: 5 }
+        }
+      ]
+    },
+    // 打工事件：下放到探索随机事件
+    {
+      id: "ch1_event_part_time_job",
+      type: "story",
+      speaker: "旁白",
+      text:
+        "你在街头看到一家小店门口贴着「招临时工」的告示。\n\n" +
+        "老板是个中年大叔，看到你在看告示，主动走过来：\n" +
+        "「小伙子，要不要来干点活？按小时算，不累，就是有点枯燥。」\n\n" +
+        "你看了看告示上的时薪，虽然不高，但确实能赚点零花钱。",
+      options: [
+        {
+          text: "干了！",
+          action: function() {
+              const player = Game.State.player;
+              
+              // 检查精力是否足够
+              if (player.energy < 20) {
+                  alert("太累了，先休息一下吧。");
+                  Game.Game.goToEvent("ch1_street_random_hub");
+                  return;
+              }
+              
+              // 消耗20点精力
+              player.energy = Math.max(0, player.energy - 20);
+              
+              // 获得300~500随机人民币
+              const moneyEarned = 300 + Math.floor(Math.random() * 201); // 300-500
+              player.money = (player.money || 0) + moneyEarned;
+              
+              // 随机打工趣事文案
+              const workMessages = [
+                  "送了一晚上外卖，腿都跑断了",
+                  "在网吧当网管，顺便蹭了会儿网",
+                  "帮人写代码，头发掉了一把",
+                  "在便利店值夜班，看了不少深夜故事",
+                  "跑腿送文件，顺便熟悉了南昌的大街小巷",
+                  "在餐厅端盘子，学会了看人脸色",
+                  "做临时工搬货，练出了一身力气"
+              ];
+              const message = workMessages[Math.floor(Math.random() * workMessages.length)];
+              
+              alert(`${message}\n\n获得 ¥${moneyEarned} 人民币\n消耗 20 点精力`);
+              
+              // 更新UI
+              Game.Game.updateUI();
+              
+              // 自动存档
+              if (Game.Save) {
+                  Game.Save.save();
+              }
+              
+              // 返回探索中心
+              Game.Game.goToEvent("ch1_street_random_hub");
+          }
+        },
+        {
+          text: "算了，还是继续探索吧",
+          next: "ch1_street_random_hub",
+          effects: { exp: 2 }
+        }
+      ]
+    },
     {
       id: "ch1_event_unlucky_fall",
       type: "story",
@@ -720,67 +911,34 @@ Game.Events_ch1 = [
       type: "story",
       speaker: "旁白",
       text:
-        "街角摆着一个简陋的算命摊，一个看起来五十多岁的男人坐在小马扎上，" +
-        "面前摆着几本旧书和一张手写的\"看相算命\"牌子。\n\n" +
-        "你走近时，他突然抬起头，眼神里闪过一丝你从未见过的精光。\n\n" +
-        "「小伙子，」他压低声音说，「你身上有股气，不一般啊。」\n\n" +
-        "你愣了一下，他摆摆手：\n" +
-        "「别紧张，我也是散修，在这末法时代混口饭吃。看你刚觉醒，送你一句话：」\n\n" +
-        "「修炼要稳，但该拼命的时候也别怂。今晚你可能会遇到点麻烦，」" +
-        "他顿了顿，「不过，你命里有贵人。」\n\n" +
-        "他看了看你，从书堆里抽出一本破旧的小册子：\n" +
-        "「这本《基础灵力弹》是我年轻时偶然得到的，现在也用不上了，送给你吧。" +
-        "学会后可以在战斗中使用，消耗灵力造成更高伤害。」",
+        "那个老头坐在小马扎上，眼神精光四射。\n\n" +
+        "「小伙子，看你骨骼清奇，这本《基础灵力弹》就送你防身吧。」\n\n" +
+        "他不由分说，直接把一本破书塞进你怀里。",
       options: [
         {
-          text: "接受这本功法秘籍",
+          text: "收下秘籍 (获得技能书)",
           next: "ch1_event_fortune_teller_get_book",
-          effects: { exp: 15, mp: 10 }
-        },
-        {
-          text: "道谢后离开，心里多了几分底气",
-          next: "ch1_street_battle_intro",
-          effects: { exp: 15, mp: 10 }
-        }
-      ],
-      // 动态修改选项文本（如果已学会或已有）
-      dynamicOptions: function() {
-          const hasBook = Game.State.getItemCount("spell_book_qi_blast") > 0;
-          const hasSkill = Game.State.hasSkill("qi_blast");
-          
-          if (hasSkill || hasBook) {
-              // 如果已学会或已有，修改第一个选项的文本
-              return [
-                  {
-                      text: hasSkill ? "你已经学会了这个技能" : "你已经有这本技能书了",
-                      next: "ch1_street_battle_intro",
-                      effects: { exp: 15, mp: 10 },
-                      disabled: true
-                  },
-                  {
-                      text: "道谢后离开，心里多了几分底气",
-                      next: "ch1_street_battle_intro",
-                      effects: { exp: 15, mp: 10 }
-                  }
-              ];
+          effects: { 
+              item: { id: "spell_book_qi_blast", count: 1 },
+              exp: 15, 
+              mp: 10 
           }
-          return null; // 使用默认选项
-      }
+        }
+      ]
+      // 严禁在此处添加 dynamicOptions，防止逻辑卡死
     },
     {
       id: "ch1_event_fortune_teller_get_book",
       type: "story",
       speaker: "旁白",
       text:
-        "你接过那本破旧的小册子，封面上用毛笔写着《基础灵力弹》几个字。\n\n" +
-        "「记住，」算命先生说，「法术不是越多越好，把一门练精了，比学十门半吊子强。」\n\n" +
-        "你点点头，把书收好。\n\n" +
-        "（提示：你可以在背包中使用这本技能书来学习技能，学会后可以在战斗中使用。）",
+        "你拿着书刚想道谢，老头已经收摊不见了。\n\n" +
+        "正当你疑惑时，旁边的巷子深处突然传来一阵微弱的猫叫声……",
       options: [
         {
-          text: "道谢后离开",
-          next: "ch1_street_battle_intro",
-          effects: { item: { id: "spell_book_qi_blast", count: 1 }, exp: 10 }
+          text: "循着声音走过去",
+          next: "ch1_event_save_cat",
+          effects: {}
         }
       ]
     },
