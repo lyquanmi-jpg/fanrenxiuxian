@@ -1543,18 +1543,48 @@ Game.UI = {
           justify-content: center;
           align-items: center;
           z-index: 2000;
+          padding: 20px;
+          box-sizing: border-box;
       `;
 
       const container = document.createElement("div");
+      container.className = "npc-modal-container";
       container.style.cssText = `
           background: #1a1a1a;
           border: 2px solid #4a9eff;
           border-radius: 8px;
-          padding: 20px;
           max-width: 500px;
-          width: 90%;
-          max-height: 80vh;
+          width: 100%;
+          max-height: 85vh;
+          display: flex;
+          flex-direction: column;
+          overflow: hidden;
+          box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+      `;
+      
+      // 创建内容区域（可滚动）
+      const contentArea = document.createElement("div");
+      contentArea.className = "npc-modal-content";
+      contentArea.style.cssText = `
+          flex: 1;
           overflow-y: auto;
+          overflow-x: hidden;
+          padding: 20px;
+          -webkit-overflow-scrolling: touch;
+          min-height: 0;
+      `;
+      
+      // 创建按钮区域（固定在底部）
+      const buttonArea = document.createElement("div");
+      buttonArea.className = "npc-modal-buttons";
+      buttonArea.style.cssText = `
+          flex-shrink: 0;
+          padding: 16px 20px;
+          border-top: 1px solid #333;
+          background: #1a1a1a;
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
       `;
 
       // 计算好感度进度
@@ -1615,22 +1645,28 @@ Game.UI = {
 
       html += `</div>`;
 
-      // 5. 添加按钮
-      html += `
-          <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 20px;">
-              <button class="ui-button" 
-                      ${!canCombat ? "disabled" : ""} 
-                      onclick="${canCombat ? `Game.Game.onNPCCombat('${npcId}'); Game.UI.closeNPCDetail();` : ''}" 
-                      style="width: 100%; padding: 12px; font-size: 16px; ${!canCombat ? 'opacity: 0.5; cursor: not-allowed;' : ''}">
-                  ⚔️ 切磋${!canCombat ? ' (好感度不足，无法切磋)' : ''}
-              </button>
-              <button class="ui-button secondary" onclick="Game.UI.closeNPCDetail();" style="width: 100%; padding: 12px; font-size: 16px;">
-                  关闭
-              </button>
-          </div>
+      // 5. 添加按钮 HTML
+      const buttonHtml = `
+          <button class="ui-button" 
+                  ${!canCombat ? "disabled" : ""} 
+                  onclick="${canCombat ? `Game.Game.onNPCCombat('${npcId}'); Game.UI.closeNPCDetail();` : ''}" 
+                  style="width: 100%; padding: 12px; font-size: 16px; min-height: 44px; ${!canCombat ? 'opacity: 0.5; cursor: not-allowed;' : ''}">
+              ⚔️ 切磋${!canCombat ? ' (好感度不足，无法切磋)' : ''}
+          </button>
+          <button class="ui-button secondary" onclick="Game.UI.closeNPCDetail();" style="width: 100%; padding: 12px; font-size: 16px; min-height: 44px;">
+              关闭
+          </button>
       `;
 
-      container.innerHTML = html;
+      // 设置内容区域 HTML
+      contentArea.innerHTML = html;
+      
+      // 设置按钮区域 HTML
+      buttonArea.innerHTML = buttonHtml;
+      
+      // 组装结构
+      container.appendChild(contentArea);
+      container.appendChild(buttonArea);
       overlay.appendChild(container);
       document.body.appendChild(overlay);
   },
